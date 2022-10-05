@@ -43,10 +43,15 @@ construct a `DataFrame`, `city_data`, that contains information about cities in 
 "
 
 # ╔═╡ dd6128dd-bdf4-48a2-a6ec-b213231c4ad3
+city = ["Corvallis", "Portland", "Eugene"]
 
 # ╔═╡ 4ece318f-e083-40cf-803a-beed87b520fe
+population = [57961, 647805, 168916]
 
 # ╔═╡ 2071b5b6-038f-11eb-182d-f392b2198f2e
+# city_data = DataFrame(city=city, population=population)
+city_data = DataFrame(city=["Corvallis", "Portland", "Eugene"],
+	                    population=[57961, 647805, 168916])
 
 # ╔═╡ bc58ac1c-033c-11eb-2698-f5fc4c20b8ce
 md"### append rows
@@ -59,6 +64,10 @@ _approach 1_: think of rows of a `DataFrame` as an `Array`.
 "
 
 # ╔═╡ d172a490-033c-11eb-157e-6b95587099dd
+begin
+	new_row = ["Bend", 94520]
+	push!(city_data, new_row)
+end
 
 # ╔═╡ 78b1f924-033d-11eb-2937-ff9634f5aa9a
 md"
@@ -66,6 +75,10 @@ _approach 2_: think of rows of a `DataFrame` as a `Dict`.
 "
 
 # ╔═╡ 4c407c9a-0353-11eb-0618-955711917f54
+begin
+	another_new_row = Dict("population" => 122324, "city" => "Berkeley")
+	push!(city_data, another_new_row)
+end
 
 # ╔═╡ 5e293c82-033d-11eb-3984-7164bf9a351d
 md"### append columns
@@ -83,33 +96,41 @@ append another two column to `city_data` giving the (1) annual rainfall in each 
 *approach 1:* view the `DataFrame` as an array.
 "
 
-# ╔═╡ 400d2f1a-5033-4581-a5b4-f57f101bef4e
-
 # ╔═╡ 452fee83-985a-4eab-9c9d-2223645056f0
+city_data[:, "rain"] = [51.0, 43.0, 47.0, 12.0, 25.0]
 
 # ╔═╡ 014a4866-a14d-444d-81cb-5c3e242f855d
 md"*approach 2:* employ the `insertcols!` function, which allows you to insert a column at a specified location."
 
 # ╔═╡ a5e9fc00-0353-11eb-1443-63b1c2edab7c
+city_data
+
+# ╔═╡ 45d40645-a10d-403b-a676-a5dbab58eaa6
+insertcols!(city_data,2,"state" => ["OR", "OR", "OR", "OR", "CA"])
 
 # ╔═╡ c94b33a0-3023-45fb-9c77-354579d742fb
 md"*approach 3:* the `transform` function, which transforms current column(s) into a new one. see [the docs](https://dataframes.juliadata.org/stable/lib/functions/#DataFrames.transform!)."
 
-# ╔═╡ 46f095d4-630a-4661-bb37-a0084d11b6b6
+# ╔═╡ 057b7c64-96a2-4589-9463-252e0a185aee
+
 
 # ╔═╡ a67b30b0-0353-11eb-2d2f-871d7a5ffd36
 md"### count the # of rows/columns"
 
 # ╔═╡ 6249187e-035a-11eb-2f6a-d3318cf2a996
 
+
 # ╔═╡ 6f8ca3cc-5935-4abe-b628-ac3c8cf4cd97
 
+
 # ╔═╡ 84f3f188-b90c-4fcf-994b-5d32dd0551d5
+
 
 # ╔═╡ 9b63b70a-7ea6-48a6-a068-602de654681d
 md"### retreive the names of the columns"
 
 # ╔═╡ f2cbf254-69fc-4e9f-974d-468ce53040a8
+
 
 # ╔═╡ a3421e44-035e-11eb-3cf7-c70142f0591d
 md"
@@ -117,6 +138,7 @@ md"
 "
 
 # ╔═╡ a9d20a30-035e-11eb-14f4-ddf7cdaa34f6
+
 
 # ╔═╡ 63716d2a-0362-11eb-3ce5-3b41d4bef04c
 md"
@@ -127,7 +149,9 @@ use the `select!` function. see [the docs](https://dataframes.juliadata.org/stab
 
 # ╔═╡ 5931d59e-0391-11eb-078b-ddb0bcaf6521
 
+
 # ╔═╡ 48d7d749-c7d0-407c-8863-8ab7530d6c03
+
 
 # ╔═╡ 581bfc10-0362-11eb-1b29-cfd4320a5130
 md"### delete a row"
@@ -136,6 +160,7 @@ md"### delete a row"
 # add a bogus row we'll want to remove
 
 # ╔═╡ b7fb0648-0390-11eb-2dc5-8b6935d2545c
+
 
 # ╔═╡ b8de77aa-0362-11eb-36d9-1d905442ca13
 md"
@@ -146,6 +171,7 @@ md"
 # add duplicate row we'll want to remove
 
 # ╔═╡ cbf6250c-0362-11eb-365b-d327617f197e
+
 
 # ╔═╡ 5d7208d4-035b-11eb-00ef-cd70b6cb79d3
 md"
@@ -158,12 +184,14 @@ the columns are `Array`'s. treat the `DataFrame` like a 2D array.
 
 # ╔═╡ 8d4f4ede-035b-11eb-2337-7bdb844389ae
 
+
 # ╔═╡ 7daa87e6-035b-11eb-3bb8-ff1bdd95714c
 md"
 ##### ... row
 "
 
 # ╔═╡ f735e3ee-035b-11eb-33d1-755a1a9dc0a7
+
 
 # ╔═╡ 1821e936-035c-11eb-0cb1-014241a2599e
 md"
@@ -172,6 +200,7 @@ md"
 
 # ╔═╡ 1ad35930-035c-11eb-165d-2d70f7b07713
 
+
 # ╔═╡ 9e01dd3a-0362-11eb-3d19-392ec2d06bd6
 md"
 ### find unique entries in a column
@@ -179,12 +208,14 @@ md"
 
 # ╔═╡ a6f99cc8-0362-11eb-1801-2dd5fa96efe1
 
+
 # ╔═╡ d663dd98-035a-11eb-156f-ff237a3944b6
 md"
 ## iterate through a `DataFrame`, row by row
 "
 
 # ╔═╡ 360eb67a-035b-11eb-2ab3-85adb264a387
+
 
 # ╔═╡ 366557f2-035c-11eb-31ce-9308dd49ce0c
 md"## filter rows on some condition
@@ -199,15 +230,18 @@ use the `filter` function. see [the docs](https://dataframes.juliadata.org/stabl
 
 # ╔═╡ 5abb815e-0392-11eb-3576-a7e39e8ac6af
 
+
 # ╔═╡ 6ca4c6a8-035d-11eb-158c-3380a0cafdaa
 md"**example 2**: query all cities (rows) where the population is less than 500,000."
 
 # ╔═╡ 7dad5c94-035d-11eb-1f7b-2fedd834efaa
 
+
 # ╔═╡ 7e54ed24-035d-11eb-19e2-4986b3cfcab4
 md"**example 3**: ... and that reside in Oregon."
 
 # ╔═╡ 9879f190-035d-11eb-07c6-55453426c704
+
 
 # ╔═╡ 9926bdbc-035d-11eb-1824-438e97d78ab9
 md"## sort rows
@@ -216,6 +250,7 @@ e.g. permute rows so that cities are listed by `:population` in reverse (`rev`) 
 "
 
 # ╔═╡ ab918a54-035d-11eb-27ae-2d70b27460ac
+
 
 # ╔═╡ 9ed15498-035d-11eb-1369-53ae1eac0a27
 md"
@@ -228,12 +263,15 @@ e.g., group the cities (rows) in `city_data` by state.
 
 # ╔═╡ c1526020-035d-11eb-2d8a-d131aa445738
 
+
 # ╔═╡ c106f1b5-946c-44a1-bb63-ad3342adb6aa
 md"the `GroupedDataFrame` works like an array and can be iterated over."
 
 # ╔═╡ ed1a5928-be8b-4cd1-b9b8-2ed8c9e75996
 
+
 # ╔═╡ e80a4a9a-0392-11eb-2d35-09bb527d7a29
+
 
 # ╔═╡ 4dd5195c-035e-11eb-1991-3fd9e7bf5d25
 md"
@@ -251,16 +289,19 @@ _example 1_: group by state, take `mean` of the rainfall column.
 
 # ╔═╡ 03a59b6c-035f-11eb-0a39-79c770bf5544
 
+
 # ╔═╡ 02fab01a-e9b8-4a43-aceb-31985194f4c6
 md"
 _example 2_: group by state, determine if `sum` of the rainfall is less than 50. "
 
 # ╔═╡ a5ad8099-c40a-40c4-9197-a47281937537
 
+
 # ╔═╡ 27391eca-ce4b-434f-bba0-13fe0d700298
 md"_example 3_: group by state, compute rainfall per person"
 
 # ╔═╡ a6f0b99d-8b48-4758-89ee-9b2772965cab
+
 
 # ╔═╡ 8226dc8e-0362-11eb-17bf-47cae0df2907
 md"## I/O with `.csv` files
@@ -274,7 +315,9 @@ CSV = comma separated value
 
 # ╔═╡ 907832ea-0362-11eb-2132-a3abadd4b1ee
 
+
 # ╔═╡ c711c3f8-0393-11eb-2fbc-77693069c73f
+
 
 # ╔═╡ 08e91b1c-035f-11eb-05d0-9fe60938a4e3
 md"### `.csv` to `DataFrame`
@@ -283,13 +326,18 @@ first, let's download the `.csv` from Github [here](https://raw.githubuserconten
 
 # ╔═╡ fdab541a-0393-11eb-0318-3390bd75a95d
 
+
 # ╔═╡ 2604e77f-7ea0-4049-bb17-d7b5d0ca9c29
+
 
 # ╔═╡ 717b8f72-61ab-431c-9fc8-d518523b4674
 
+
 # ╔═╡ 2823012b-b80f-4532-a614-539eeba366da
 
+
 # ╔═╡ 1c01557a-035f-11eb-37e8-e9497003725f
+
 
 # ╔═╡ 4cf973b8-0361-11eb-1777-cf02396ba052
 md"
@@ -313,6 +361,7 @@ only keep rows where the value in the \"key\" column appears in _both_ `DataFram
 
 # ╔═╡ 74379f7c-0361-11eb-0192-c59bca513893
 
+
 # ╔═╡ 80c12360-0361-11eb-3eb3-eddb35dac4a5
 md"
 ### outer join
@@ -323,6 +372,7 @@ note the `?` appears in the type under the column name to indicate some entries 
 
 # ╔═╡ 02bef8b2-0362-11eb-130f-f99cc7311f5a
 
+
 # ╔═╡ 098a5628-0362-11eb-33af-9fc2fbceddba
 md"## missing values
 Julia has a data type to efficiently handle missing values.
@@ -330,27 +380,33 @@ Julia has a data type to efficiently handle missing values.
 
 # ╔═╡ 12deee64-0362-11eb-3612-ed369a623583
 
+
 # ╔═╡ 977c25ce-0394-11eb-0076-0955dcfe0ca1
+
 
 # ╔═╡ 1e41218c-0362-11eb-2ae3-17339b033f7a
 md"columns with missing values are arrays of whatever type but `Union`'d with the `Missing` type"
 
 # ╔═╡ 25a8858c-0362-11eb-3405-95aeea8c1338
 
+
 # ╔═╡ 2f441675-6930-4f97-b7e1-dfc1c25cdbc6
 md"### removing rows with `missing` entries"
 
 # ╔═╡ 86ec1cfe-d75e-4f90-a7e7-ed438517641f
+
 
 # ╔═╡ 2fb25d0c-0362-11eb-16b3-b75f845f82a9
 md"..._all_ rows with a missing entry."
 
 # ╔═╡ 36ba914e-0362-11eb-0aa7-6fda9f1b4d02
 
+
 # ╔═╡ 38ab5560-0362-11eb-15cb-4595de21d218
 md"...only rows with a `missing` entry in a certain column."
 
 # ╔═╡ 3edf858c-0362-11eb-3b47-5f53c1360718
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -745,12 +801,12 @@ version = "17.4.0+0"
 # ╟─78b1f924-033d-11eb-2937-ff9634f5aa9a
 # ╠═4c407c9a-0353-11eb-0618-955711917f54
 # ╟─5e293c82-033d-11eb-3984-7164bf9a351d
-# ╠═400d2f1a-5033-4581-a5b4-f57f101bef4e
 # ╠═452fee83-985a-4eab-9c9d-2223645056f0
 # ╟─014a4866-a14d-444d-81cb-5c3e242f855d
 # ╠═a5e9fc00-0353-11eb-1443-63b1c2edab7c
+# ╠═45d40645-a10d-403b-a676-a5dbab58eaa6
 # ╟─c94b33a0-3023-45fb-9c77-354579d742fb
-# ╠═46f095d4-630a-4661-bb37-a0084d11b6b6
+# ╠═057b7c64-96a2-4589-9463-252e0a185aee
 # ╟─a67b30b0-0353-11eb-2d2f-871d7a5ffd36
 # ╠═6249187e-035a-11eb-2f6a-d3318cf2a996
 # ╠═6f8ca3cc-5935-4abe-b628-ac3c8cf4cd97
