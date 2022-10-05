@@ -1,317 +1,284 @@
 ### A Pluto.jl notebook ###
-# v0.19.12
+# v0.19.11
 
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 1fffda88-b222-4eb6-90d5-a7d7dc179ff4
-using CSV ,DataFrames, Printf, CairoMakie, ColorSchemes, PlutoUI, RDatasets, Statistics
+# ╔═╡ 640a599e-3a27-11ed-069c-f14f3b6633e9
+using CairoMakie, CSV, DataFrames, Interpolations, LinearAlgebra, Statistics, JLD2, Distributions, PlutoUI
 
-# ╔═╡ b1284072-99ce-48ac-a902-b350fd9ad3dc
+# ╔═╡ 78a8749f-c501-4e7b-bccf-3bdf4d55df92
 TableOfContents()
 
-# ╔═╡ 4baf009a-a01d-4b50-baad-508fee233846
-md"# data visualization
+# ╔═╡ dbf497fa-f45b-4f75-96c0-3e0a73af0203
+md"# hw1: Monte Carlo simulation to compute the area of Crater lake
 
-we will employ the `Makie.jl` package to create data visualizations.
+the task in this hw assignment is to compute the area of Crater Lake using a Monte Carlo simulation. this problem resembles the classic one of estimating $\pi$ by Monte Carlo simulation, described [here](https://en.wikipedia.org/wiki/Monte_Carlo_method#Overview).
+
+to represent the shape of Crater Lake, I provide a matrix `X`, whose column $i$ is the spatial coordinate of a point $\mathbf{x}_i\in\mathbb{R}^2$ that lies on the boundary of the lake. the spatial units are miles. we will employ this data tracing the lake boundary to create a representation of the shape/area of the lake.
+"
+
+# ╔═╡ 2e87f1a8-b943-4317-99b1-8125e99355f2
+md"
+## read in, viz the raw data
+🐜 download the `crater_lake_coords.jld2` file from Github [here](https://github.com/SimonEnsemble/intro_to_data_science_fall_2022/blob/main/hw/mc_lake/crater_lake_coords.jld2). use the `load` function from the `JLD2` package (see [here](https://juliaio.github.io/JLD2.jl/dev/#save-and-load-functions)) to read the data and assign the matrix stored in the `.jld2` file as a variable `X`.
 
 !!! note
-	consult the [Makie.jl docs](https://makie.juliaplots.org/dev/) to figure out how to create various data visualizations and tune them. for a gallery of examples, see [here](https://docs.makie.org/dev/examples/plotting_functions/) and the [Beautiful Makie project](https://beautiful.makie.org/dev/).
+	> `JLD2` saves and loads Julia data structures in a format comprising a subset of HDF5. -[JLD2 docs](https://github.com/JuliaIO/JLD2.jl)
 
-first, let's set the `Makie.jl` [theme](https://makie.juliaplots.org/dev/documentation/theming/). pre-defined themes are listed [here](https://makie.juliaplots.org/dev/documentation/theming/predefined_themes/).
+	> Hierarchical Data Format (HDF) is a set of file formats (HDF4, HDF5) designed to store and organize large amounts of data. -[Wikipedia](https://en.wikipedia.org/wiki/Hierarchical_Data_Format)
+
 "
 
-# ╔═╡ 71286712-22dc-4ad0-bdad-5003c5814cef
-set_theme!(theme_ggplot2()); update_theme!(fontsize=22, linewidth=4, resolution=(600, 500))
+# ╔═╡ 4f83121f-4b98-4854-adb4-7e11be25b482
 
-# ╔═╡ 975094ce-2465-417a-9260-63e1dd41e39e
-md"## choosing colors via `ColorSchemes.jl`
 
-to choose effective color palettes and colormaps, we will employ `ColorSchemes.jl`. see the [ColorSchemes.jl docs](https://juliagraphics.github.io/ColorSchemes.jl/stable/).
-
-distinguishable colors
-"
-
-# ╔═╡ 3f8ee97e-f7d8-47a7-861a-6e2782f3990d
-ColorSchemes.okabe_ito
-
-# ╔═╡ eab60046-d543-4a16-8eb4-fbbad82a34f0
-ColorSchemes.okabe_ito[1] # get first distinguishable color
-
-# ╔═╡ ce2b183c-40ae-43fd-a4d4-0920d9e4eeed
-md"
-color maps (sequential)
-"
-
-# ╔═╡ f43425b8-3c84-4f3a-8769-1381dd131f16
-ColorSchemes.algae
-
-# ╔═╡ 85b24100-0883-4ff6-ad09-103f4894006c
-get(ColorSchemes.algae, 0.2)
-
-# ╔═╡ 09d50ad2-5fc0-4578-8d27-d1f53aeb7d0e
-get(ColorSchemes.algae, 0.8) # map 0.8 to a color
-
-# ╔═╡ aef19e67-11ad-4c59-8e25-b838e017a376
-md"
-color maps (diverging)---good for when there is a notion of positive and negative.
-"
-
-# ╔═╡ 69fa827c-84db-4ac2-8aa9-2bda187be53f
-ColorSchemes.diverging_gwr_55_95_c38_n256
-
-# ╔═╡ c6eca738-6c2e-47e0-96f2-53f4e1f9d267
-md"
-## scatter, line plots
-
-let's visualize xenon adsorption data in a nano-porous material, [SBMOF-1](http://corysimon.github.io/structure_viz/sbmof1.html), from Fig. 2 [here](https://www.nature.com/articles/ncomms11831), and how the Langmuir model compares to the experimental data.
-
-the raw data is [here](https://raw.githubusercontent.com/SimonEnsemble/intro_to_data_science_fall_2022/main/data/Xe_in_SBMOF-1.csv).
-
-the [Langmuir adsorption model](https://en.wikipedia.org/wiki/Langmuir_adsorption_model) for gas adsorption in SBMOF-1 is:
-```math
-n(p) = M\frac{Kp}{1+Kp}
-``` with:
-- amount of gas adsorbed [mmol/g], $n$
-- pressure [bar], $p$
-- identified Langmuir parameters $M=1.412$ mmol/g and $K=37.2$ bar$^{-1}$.
-
-🐸 download the data.
-"
-
-# ╔═╡ 1b4d72a3-fb0c-46cf-a651-cf40458134d7
-download("https://raw.githubusercontent.com/SimonEnsemble/intro_to_data_science_fall_2022/main/data/Xe_in_SBMOF-1.csv", "Xe_in_SBMOF-1.csv")
-
-# ╔═╡ 141d7367-4123-4607-844a-39de3a46559b
-md"🐸 read in the data as a `DataFrame`."
-
-# ╔═╡ 5ce0008e-a708-49d6-affc-e11606907cc2
-data = CSV.read("Xe_in_SBMOF-1.csv", DataFrame, comment="#")
-
-# ╔═╡ 9ff60bb2-3a34-4181-951b-d8f02819c3b6
-md"🐸 reminder of how to grab the columns in the `DataFrame`."
-
-# ╔═╡ ccdcae4f-2242-43eb-a333-cd1736a51dde
-data[:, "pressure (bar)"]
-
-# ╔═╡ 8568efe3-4610-45a3-9a39-a25842a97f37
-data[:, "adsorption (mmol/g)"]
-
-# ╔═╡ 6d56b9bd-6b73-4962-bb28-3a1e09f69c6e
-md"🐸 define the Langmuir model as a function."
-
-# ╔═╡ 008f01f9-fe05-4ceb-bc02-b51463add2c4
-n(p; K=37.2, M=1.41) = M * K * p / (1 + K * p)
-
-# ╔═╡ 60d290b8-1353-4d5c-b6e0-dec91859ea25
-md"
-🐸 plot the data as points and the model as a line, on the same canvas. include a legend, x-axis label, y-axis label, and title.
-"
-
-# ╔═╡ 7f622486-10de-43c7-be47-27a088b760bc
-p = range(0.0, 1.0, length=100)
-
-# ╔═╡ 4e02489f-96ff-4fd5-bb1b-2af7556ff788
-f(x) = exp(-(x/3))*sin(2x)
-
-# ╔═╡ f5528881-3855-4b3e-9200-5985f22ac861
-x = range(0, 10π, length=100)
-
-# ╔═╡ 664e1624-639c-4dd3-80d3-9e3c64b3ddaf
-begin
-	fig = Figure()
-	ax = Axis(fig[1, 1], 
-		title="Xe adsorption in SBMOF-1", 
-		xlabel="pressure [bar]", 
-		ylabel="xenon uptake [mmol/g]")
-	lines!(ax, p, n.(p), 
-		   label="Langmuir model", 
-		   color=ColorSchemes.okabe_ito[1])
-	scatter!(data[:, "pressure (bar)"], data[:, "adsorption (mmol/g)"], 
-		     color=ColorSchemes.okabe_ito[2], markersize=12, 
-		     label="data", marker=:rect, strokewidth=1)
-	axislegend(position=:rb)
-	fig
-end
-
-# ╔═╡ 415e0b9f-1f13-4b48-b5b8-b6d0d890d410
-begin
-	myfig = Figure()
-	myax = Axis(fig[1, 1])
-	lines!(myax, x, f.(x))
-	myfig
-end
-
-# ╔═╡ 8be0ae67-2f7d-435d-a2b7-0722a7d6e28e
-md"## line plots, colored by a parameter
-
-to understand the Langmuir model, let's study how the parameter $K$ affect the adsorption isotherm $n(p)$.
-
-🐸 draw a series of Langmuir curves with different $K$. color each curve according to $K$ and draw an associated colorbar to indicate the color to value mapping.
-"
-
-# ╔═╡ d8f93cf5-064e-493e-ad10-5457c8c861a4
-Ks = range(0.0, 20.0, length=8)
-
-# ╔═╡ a9e4ceb9-2d44-42bc-a891-d19134cd736a
-K_range = (minimum(Ks), maximum(Ks))
-
-# ╔═╡ a0a8a005-b9f8-461a-a160-dbe1c1304708
-begin
-	fig2 = Figure()
-	ax2 = Axis(fig2[1, 1], 
-		title="interpreting the Langmuir model", 
-		xlabel="pressure [bar]", 
-		ylabel="gas uptake [mmol/g]")
-	for K in Ks
-		color = get(ColorSchemes.roma, K, K_range)
-		lplot = lines!(p, n.(p, K=K),
-					   label="Langmuir model", 
-					   color=color)
-	end
-	Colorbar(fig2[1, 2], limits=K_range, colormap=ColorSchemes.roma,
-    	     label="Langmuir K [bar⁻¹]")
-	fig2
-end
-
-# ╔═╡ b6c9396a-a9e5-40f3-8bce-e573206ca3f8
-md"## bar plots
-
-see the docs for `barplot` [here](https://makie.juliaplots.org/stable/examples/plotting_functions/barplot/index.html).
-
-*goal*: visualize how Americans like their steak done [[source](https://fivethirtyeight.com/features/how-americans-like-their-steak/)] via a bar plot showing preference for rare, medium rare, etc.
-
-🐸 read the tabular data from the file `steak.csv` [here](https://raw.githubusercontent.com/SimonEnsemble/intro_to_data_science_fall_2022/main/data/steak.csv) as a `DataFrame`.
-* rows: each row represents a survey response of a person
-* first column: answer to \"do you eat steak?\"
-* second column: answer to \"if you do like steak, how do you like your steak done?\"
-"
-
-# ╔═╡ d73eb64c-663d-4f5b-8fda-a39543dda27b
-download("https://raw.githubusercontent.com/SimonEnsemble/intro_to_data_science_fall_2022/main/data/steak.csv", "steak.csv")
-
-# ╔═╡ 6b15f4f9-577c-406c-ad54-b9361b56968f
-steak_data = CSV.read("steak.csv", 
-	                  header=["I eat steak", "I like my steak..."], DataFrame)
-
-# ╔═╡ f2406b5f-a810-4962-9b5f-6efe8f97a79c
-md"🐸 drop rows corresponding to folks that do not eat steak.
-"
-
-# ╔═╡ 59694b4d-dcb5-409e-8e0d-9e1bbc90dab6
-dropmissing!(steak_data)
-
-# ╔═╡ 2a2c3377-6c23-44f5-8c19-1976408cdfd3
-unique(steak_data[:, "I eat steak"])
-
-# ╔═╡ 009a4a15-9704-405b-9aa3-c2d5a5f995a8
-md"
-🐸 count the number of folks who prefer steak rare, medium rare, etc.
-
-store the result in `steak_prefs::DataFrame` to use for visualization. sort according to time cooked.
+# ╔═╡ 60e98df1-e21a-4c8d-ba54-50455b61379c
+md"🐜 use `Makie` to draw a scatter plot of the points tracing the lake (contained in `X`). 
+* make the points blue, like lake water
+* include x- and y-labels (well, x₁ and x₂ here) with units of miles
+* include a title
+* pass `aspect=DataAspect()` to `Axis` to ensure proper scaling. see [here](https://docs.makie.org/v0.17.13/examples/blocks/axis/index.html#controlling_axis_aspect_ratios).
+I wrote a function `viz_lake(X)` to do this, but you don't have to.
 
 !!! hint
-    use `combine`
+	use `Makie.jl` to make a `scatter` plot. see [here](https://docs.makie.org/v0.17.13/tutorials/basic-tutorial/#scatter_plot).
 "
 
-# ╔═╡ 13f8bce2-728c-4128-af6a-24e2967241e0
-begin
-	steak_prefs = combine(groupby(steak_data, "I like my steak..."), nrow => "# folks")
-	steak_prefs = steak_prefs[[2, 1, 3, 4, 5], :]
-end
+# ╔═╡ fd1a78dc-2fb4-48f9-a61c-fa00ecfd367b
 
-# ╔═╡ 04ca01f8-31b7-4aa7-8870-705284f961b7
+
+# ╔═╡ 6148b291-4b2c-4fa0-a380-35651ded2750
+
+
+# ╔═╡ 4ec36505-66d9-4cd0-a4c5-e3718d1a5cba
 md"
-🐸 draw a bar plot showing how folks like their steak cooked.
+## centering the data
+it will be convenient to center the coordinates.
+
+🐜 compute the \"center\" of the set of points tracing the lake as the mean coordinate in the matrix `X`. assign it to be a variable `x̄`.
+
+i.e.
+```math
+	\bar{\mathbf{x}} = \frac{1}{N}\sum_{i=1}^N \mathbf{x}_i
+```
+with $\mathbf{x}_i\in\mathbb{R}^2$ one of $N$ coordinates on the lake boundary.
+
+!!! hint
+	use the `mean` function and the `dims` keyword argument. see [docs](https://docs.julialang.org/en/v1/stdlib/Statistics/#Statistics.mean).
 "
 
-# ╔═╡ 6f6cced6-6ead-43d2-bfe7-8374641c8fc0
-steak_colors = reverse([get(ColorSchemes.gist_heat, i, (1, 5)) for i = 1:5])
+# ╔═╡ b45e7b0a-8644-4210-bec9-8fd3076b08f4
 
-# ╔═╡ 6dfdd6f9-ed6a-425b-8253-71c06b183d25
-begin
-	fig3 = Figure()
-	ax3 = Axis(fig3[1, 1], 
-		title="how do you like your steak done?", 
-		xlabel="# responses",
-	    yticks=(1:nrow(steak_prefs), steak_prefs[:, "I like my steak..."])
-	)
-	barplot!(1:nrow(steak_prefs), steak_prefs[:, "# folks"], 
-		     direction=:x, color=steak_colors,
-			 bar_labels=:y, 
-		     label_formatter=n -> @sprintf("%d", 
-			                               n / sum(steak_prefs[:, "# folks"]) * 100
-			                              ) * "%",
-	         strokecolor=:black, strokewidth=1
-	)
-	xlims!(-1, 190)
-	current_figure()
-end
 
-# ╔═╡ 4f81d47c-32c0-4b0f-8ecc-e143a164aadb
-md"## histograms
-
-see the `hist` function [docs](https://makie.juliaplots.org/stable/examples/plotting_functions/hist/).
-
-🐸 visualize the empirical distribution of heights of a sample of boys in Oxford from the `Oxboys` data set from `RDatasets.jl`. [source](https://github.com/JuliaStats/RDatasets.jl).
-
+# ╔═╡ 3a088002-b238-46eb-86f8-483ca5b9a7c2
+md"🐜 define a centered coordinate matrix `X̂` whose column $i$ gives the centered coordinate:
+```math
+	\mathbf{\hat{x}}_i := \mathbf{x}_i - \bar{\mathbf{x}}_i.
+```
+i.e., subtract the mean vector from each column of the matrix `X` to obtain `X̂`. this is a simple shift that preserves distances.
 "
 
-# ╔═╡ cf04103f-cc40-4f23-be12-c34aa3525b1f
-oxford_boys = dataset("mlmRev", "Oxboys") # from R data sets
+# ╔═╡ bc825fb1-5ee5-4d39-9ec2-a99ca8b68e79
 
-# ╔═╡ 14f634cc-46d4-4cf1-83bd-1a6719a34d7c
-begin
-	fig4 = Figure()
-	ax4 = Axis(fig4[1, 1], 
-		title="height of boys in Oxford", 
-		xlabel="height [cm]",
-	    ylabel="# boys"	)
-	hist!(oxford_boys[:, "Height"], color="brown", strokecolor=:black, strokewidth=1)
-	#text!(160, 30, text="mean $ (round)")
-	ylims!(0, nothing)
-	fig4
-end
 
-# ╔═╡ de732f20-ff77-4f10-a196-50a1d0de640d
+# ╔═╡ 89dde6a1-1230-4841-8fca-c2563a54fd4a
+md"🐜 redraw the lake boundary (exactly as above) using the centered coordinates. the lake should be the exact same shape, but centered at the origin $(0, 0)$."
+
+# ╔═╡ a9cf8d6e-1607-44e6-8f74-769ce7bff060
+
+
+# ╔═╡ 9a6aa8a8-fd6a-4928-bf28-b7444b2e6d3b
+md"## parameterizing the lake as $r=r(\theta)$
+
+we need a continuous representation of the shape of the lake boundary.
+
+to achieve this, let us parameterize the lake boundary as a function $r=r(\theta)$ with $\theta \in [-\pi, \pi]$ the angle a point on the lake boundary makes with the x₁-axis and $r$ the distance of that point from the origin. i.e., we will represent the lake boundary using a parameterization in polar coordinates. 
+"
+
+# ╔═╡ e5079f42-2137-459f-a351-ddc22864085a
+md"### translate the data into polar coordinates
+first, let's translate the data, currently in Cartesian coordinates, into polar coordinates. 
+
+🐜 create a vector `r` whose entry $i$ gives the distance of coordinate $\mathbf{x}_i$ from the origin $(0,0)$.
+"
+
+# ╔═╡ 0edc2e54-6552-4a56-aa03-87ae8886e826
+
+
+# ╔═╡ d866aace-c019-4fe3-a77e-d681e1af001f
+md"🐜 create a vector θ whose entry $i$ gives the angle coordinate $\mathbf{x}_i$ makes with the x₁-axis.
+
+!!! hint
+	use the `atan` function [here](https://docs.julialang.org/en/v1/base/math/#Base.atan-Tuple{Number}).
+"
+
+# ╔═╡ 6d01e662-761f-4f33-89d9-7d29c4196366
+
+
+# ╔═╡ cbce6c42-b5db-4b59-8399-495289c3b247
+md"🐜 to check your representation of the data in polar cooradinates, plot the points tracing the lake boundary again but compute the $(x_1, x_2)$ Cartesian coordinates for `scatter` using the formulas $x_1=r \cos(\theta)$ and $x_2=r\sin(\theta)$ and your vectors `r` and `θ`.
+
+!!! note
+	this process of checking your code every step of the way is a good coding practice.
+"
+
+# ╔═╡ d3a6961d-3f70-4b9e-8bc9-38e8ad91c952
+
+
+# ╔═╡ ba93499d-3e10-43b1-91f5-41078459f50a
+
+
+# ╔═╡ d80c35e7-ee90-464e-b7b4-6e2250efc3ff
+md"### creating a continuous representation $r=r(\theta)$
+the goal now is to use linear interpolation of the data $(\theta_i, r_i)$ to construct a continuous function $r(\theta)$ for $\theta \in [-\pi, \pi]$ that traces the lake boundary. we will employ the `linear_interpolation` function [here](https://juliamath.github.io/Interpolations.jl/stable/#Example-Usage) from `Interpolations.jl`.
+"
+
+# ╔═╡ c11fa2f9-a440-4b0e-85ba-27c749f4fccb
+md"🐜 the `linear_interpolation` function requires the $\theta_i$ in the `θ` vector to be sorted (note, they currently are not). sort the values in `θ`. of course, the values in `r` must be permuted the same way, to preserve the pairing between the entries in `r` and `θ`. assign the sorted versions as variables `r_sorted` and `θ_sorted`.
+
+!!! hint
+	use the `sortperm` function, then slice both `θ` and `r`. see [here](https://docs.julialang.org/en/v1/base/sort/#Base.sortperm).
+"
+
+# ╔═╡ b4addc63-8f97-4c15-8e86-e0f5733071ef
+
+
+# ╔═╡ 95d4cfa4-964d-45f0-8496-6a7beb382072
+
+
+# ╔═╡ 6fe5a3de-ddda-426a-a072-1db6892f22aa
+
+
+# ╔═╡ d4a35029-ff51-41f4-ab80-e9e61455d0c1
+md"the function $r(\theta)$ is periodic because $r(-\pi)=r(\pi)$. the `linear_interpolation` function can represent a periodic function. however, it requires us to repeat either the first or last data point by copying it onto the other side of the periodic boundary.
+
+🐜 with $N$ the index of the last data point in the sorted arrays, prepend the array `θ_sorted` with $\theta_N-2\pi$ and the array `r_sorted` with $r_N$.
+"
+
+# ╔═╡ d9849427-3389-4040-900b-d4eadc922c7d
+
+
+# ╔═╡ 4211a63e-c894-45fc-bb38-b13850dcae4d
+
+
+# ╔═╡ 7aa3e93e-d7f7-41b9-aaeb-0a6f13eca4f5
+md"🐜 use the `linear_interpolation` function to construct the function $r(\theta)$ (the linear interpolator of the data $\{(\theta_i, r_i)\}$) and assign it as a variable `r_of_θ`. pass the keyword argument `extrapolation_bc=Periodic()` to the function `linear_interpolation` for the interpolator to implement periodic boundary conditions.
+"
+
+# ╔═╡ 4d7ed267-7483-4fbb-9e4c-75b9474bb651
+
+
+# ╔═╡ 74e6ca9d-cb85-43d2-885c-2ab5ddaabe6f
+md"🐜 to show the interpolator respects periodic boundary conditions, compute $r(\phi)$ and $r(\phi + 2 \pi)$ for some random $\phi$. they should match."
+
+# ╔═╡ 3f2858b0-daec-4e61-9d8d-1ca7bc704428
+
+
+# ╔═╡ b51e69d6-e80e-40b5-b835-59665b6cc9c5
+md"🐜 to ensure your function $r(\theta)$ representing the continuous boundary of the lake makes sense, create a `range` of 500 $\theta$'s between $-\pi$ and $\pi$, compute the corresponding $r$'s, and plot the continuous-looking curve representing the boundary of the lake. also plot the (centered) data points, to ensure the parametric curve $r(\theta)$ is passing through the data points.
+"
+
+# ╔═╡ 54f19024-3808-40c0-91a2-ad36d6a99f9e
+
+
+# ╔═╡ dd47e2ed-45b4-4693-afb3-7f03c6c3aa2e
+
+
+# ╔═╡ 78bd4975-8098-44d6-91ec-977540a11644
+md"## Monte Carlo
+now that we have a continuous representation of the lake boundary via $r=r(\theta)$, we can run a Monte Carlo simulation to estimate the area of the lake.
+
+🐜 write a function `inside_lake(x, r_of_θ)` that takes as arguments:
+* a centered coordinate `x` (a vector)
+* your interpolation-based representation of the lake boundary `r_of_θ`
+and returns
+* `true` if `x` falls inside the lake boundary
+* `false` if `x` falls outside the lake boundary
+
+!!! hint
+	inside the function, compute the polar coordinates of `x`. compare with the output of `r_of_θ` giving the lake boundary.
+"
+
+# ╔═╡ 643006b0-d36e-4c7d-8179-5e52fa3366e1
+
+
+# ╔═╡ aa4fa8e2-f34f-43ab-859d-21322c15e6d2
+md"🐜 test your function.
+* `inside_lake([0.0, 0.0], r_of_θ)` should return `true`.
+* `inside_lake([-2, 2.0], r_of_θ)` should return `false`.
+"
+
+# ╔═╡ 05b591a7-b70b-473c-9ad1-706e5bf95c0c
+
+
+# ╔═╡ 24ce43ec-89ae-4175-9837-c0ddffdee98f
+
+
+# ╔═╡ 1ed3b8a8-34c4-44e5-876d-cecc4806a122
+md"🐜 (conceptually) draw a square $[-L/2,L/2]^2$ around the lake boundary, with $L$ sufficiently large to include all of the lake.
+assign the variable `L` as the maximum absolute value of a (centered) coordinate of the lake, to ensure the square encompasses the lake.
+"
+
+# ╔═╡ 6d65a99e-455b-4fa0-be1a-0ef77e368913
+
+
+# ╔═╡ 59e6635c-f01f-4fc3-bb5a-873e2a88ff38
 md"
-## boxplots
+think of a large, homogeneous raincloud covering the square of area $L^2$. the raincloud drops rain drops at uniform random locations in the square. we will simulate this by dropping raindrops at uniform random locations in the square. these raindrops can fall inside the lake or outside of it. the area of the lake is then $L^2$ times the fraction of the raindrops that fall inside the lake. 
 
-see the `boxplot` function [docs](https://makie.juliaplots.org/stable/examples/plotting_functions/boxplot/).
+🐜 write a function `run_monte_carlo(N, L, r_of_θ)` whose arguments are:
+* `N`: the number of Monte Carlo samples (rain drops)
+* `L`: the length of the square
+* `r_of_θ`: the interpolation-based representation of $r(\theta)$ giving the lake boundary
+and returns
+* `X_rain`: a `2 × N` matrix whose columns give the locations where the raindrops fell
+* `rain_inside`: a `N`-length boolean matrix indicating whether the raindrops fell inside or outside the lake.
 
-the Wikipedia page [here](https://en.wikipedia.org/wiki/Interquartile_range) explains box plots. I found the figure [here](https://en.wikipedia.org/wiki/Interquartile_range#/media/File:Boxplot_vs_PDF.svg) helpful.
-
-e.g. let's visualize the distribution of petal lengths among different species of irises.
+!!! hint
+	inside the function, you need a way to generate a uniform random number in $[-L/2, L/2]$. I suggest you use `Uniform` from the `Distributions.jl` package [here](https://juliastats.org/Distributions.jl/latest/univariate/#Distributions.Uniform). you could use `rand()` as well, with some extra steps.
 "
 
-# ╔═╡ 0a1cdfaf-f869-47b7-b7d1-cfd7727a9b32
-iris_data = dataset("datasets", "iris")
+# ╔═╡ 15d303b5-61c5-450e-8301-d7d2f0e822eb
 
-# ╔═╡ b0c27c31-34fe-48b8-9acd-ec8ffc480bf7
-grouped_iris_data = groupby(iris_data, "Species")
 
-# ╔═╡ 56184a34-2b88-4a34-921d-072c32e8a4dd
-species = [iris_group[1, "Species"] for iris_group in grouped_iris_data]
+# ╔═╡ de00d71a-52c0-4879-9b2d-fc9f8b5e3f94
+md"🐜 run your Monte carlo simulation with `N=10000`.
+compute your estimate for the area of the lake. it should be close to what Wikipedia reports, 20.6 mi² (not clear if this includes Wizard Island or not).
 
-# ╔═╡ efeab4e8-97ad-415f-9565-d6c131952528
-begin
-	fig5 = Figure()
-	ax5 = Axis(fig5[1, 1], 
-		title="irises",
-		ylabel="petal length",
-		xticks=(1:3, species)
-	)
-	for (i, iris_group) in enumerate(grouped_iris_data)
-		boxplot!(i * ones(nrow(iris_group)), iris_group[:, "PetalLength"])
-	end
-	ylims!(0, nothing)
-	fig5
-end
+!!! note 
+	if your area estimate does not match that of Wikipedia within 1 mi², there must be a bug. the next step will help you diagnose.
+"
 
-# ╔═╡ 171496f1-1ce0-4971-9aa9-e33ee382e4f4
-md"## Algebra of Graphics
+# ╔═╡ bab8f895-0913-49fb-ab6b-e49f0ab9af6a
 
-the package `AlgebraOfGraphics.jl` offers an advanced, powerful syntax for creating data visualizations. it employs `Makie.jl` under the hood. see [here](https://aog.makie.org/stable/) if you are interested in using it.
+
+# ╔═╡ 09076209-2dba-4314-b138-f209dbd68d3f
+
+
+# ╔═╡ dfde3f3c-0b73-401c-9d63-2dc5d2a2eadd
+
+
+# ╔═╡ 8781b9bc-25e3-471f-a478-877223186f4b
+md"🐜 draw a plot containing:
+* the centered coordinates of the lake (as above)
+* the continuous interpolation-based representation of $r(\theta)$ as a curve (as above)
+and, in addition, to visualize the result of your Monte Carlo simulation:
+* each rain drop that fell in the square, with raindrops that fell in the lake colored blue and raindrops that fell outside the lake colored brown. if your code is correct, you should see the blue lake surrounded by brown. use the `:+` marker for the raindrops.
+"
+
+# ╔═╡ ef063d0c-cf6f-4fe4-9f30-890a7e54bed9
+
+
+# ╔═╡ 12717627-4edc-445f-84df-5c3cc4c99a1c
+
+
+# ╔═╡ 27301229-b35e-4fb0-8bf9-c6fe43434821
+md"
+## written questions
+* run the simulation a few times and qualitatively note the variance in the estimated area of the lake. now set `N=100` and do the same. explain the difference in variance between the estimates. what do you conclude?
+* check out the map of Crater Lake. it includes Wizard Island. how would you go about accounting for the area of water only, excluding Wizard Island, as a next step?
+* would this strategy to parameterize the lake as $r=r(\theta)$ work with all lakes? for example, look up the shape of Lake Huron. how would you write an `inside_lake` function that works for Lake Huron? (I'm not sure how I would approach this, myself...)
 "
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -319,20 +286,22 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-RDatasets = "ce6b1742-4840-55fa-b093-852dadbb1d8b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 CSV = "~0.10.4"
 CairoMakie = "~0.8.13"
-ColorSchemes = "~3.19.0"
 DataFrames = "~1.3.6"
+Distributions = "~0.25.74"
+Interpolations = "~0.14.5"
+JLD2 = "~0.4.23"
 PlutoUI = "~0.7.43"
-RDatasets = "~0.7.7"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -341,7 +310,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.0"
 manifest_format = "2.0"
-project_hash = "0b2e680223f9c9d058e8802d71c34acf5dbb10af"
+project_hash = "cd38e273791cda37ccab3a1b6baf202bd197316c"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -435,17 +404,11 @@ git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
 
-[[deps.CategoricalArrays]]
-deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
-git-tree-sha1 = "5084cc1a28976dd1642c9f337b28a3cb03e0f7d2"
-uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.10.7"
-
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "e7ff6cadf743c098e08fca25c91103ee4303c9bb"
+git-tree-sha1 = "dc4405cee4b2fe9e1108caec2d760b7ea758eca2"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.15.6"
+version = "1.15.5"
 
 [[deps.ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
@@ -490,10 +453,10 @@ uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.8"
 
 [[deps.Compat]]
-deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "78bee250c6826e1cf805a88b7f1e86025275d208"
+deps = ["Dates", "LinearAlgebra", "UUIDs"]
+git-tree-sha1 = "5856d3031cdb1f3b2b6340dfdc66b6d9a149a374"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.46.0"
+version = "4.2.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -511,9 +474,9 @@ uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.1.1"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "46d2680e618f8abd007bce0c3026cb0c4a8f2032"
+git-tree-sha1 = "1106fa7e1256b402a86a8e7b15c00c85036fef49"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.12.0"
+version = "1.11.0"
 
 [[deps.DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
@@ -536,10 +499,6 @@ version = "1.0.0"
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
-[[deps.DelimitedFiles]]
-deps = ["Mmap"]
-uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
-
 [[deps.DensityInterface]]
 deps = ["InverseFunctions", "Test"]
 git-tree-sha1 = "80c3e8639e3353e5d2912fb3a1916b8455e2494b"
@@ -552,9 +511,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Distributions]]
 deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "0d7d213133d948c56e8c2d9f4eab0293491d8e4a"
+git-tree-sha1 = "70e9677e1195e7236763042194e3fbf147fdb146"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.75"
+version = "0.25.74"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -585,11 +544,6 @@ git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.4.8+0"
 
-[[deps.ExprTools]]
-git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
-uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
-version = "0.1.8"
-
 [[deps.Extents]]
 git-tree-sha1 = "5e1e4c53fa39afe63a7d356e30452249365fba99"
 uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
@@ -602,10 +556,10 @@ uuid = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
 version = "0.4.1"
 
 [[deps.FFMPEG_jll]]
-deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Pkg", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
-git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
+deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "Pkg", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
+git-tree-sha1 = "ccd479984c7838684b3ac204b716c89955c76623"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
-version = "4.4.2+2"
+version = "4.4.2+0"
 
 [[deps.FFTW]]
 deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
@@ -705,10 +659,10 @@ uuid = "78b55507-aeef-58d4-861c-77aaff3498b1"
 version = "0.21.0+0"
 
 [[deps.Glib_jll]]
-deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "fb83fbe02fe57f2c068013aa94bcdf6760d3a7a7"
+deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE_jll", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "a32d672ac2c967f3deb8a81d828afc739c838a06"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.74.0+1"
+version = "2.68.3+2"
 
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -724,9 +678,9 @@ version = "1.3.14+0"
 
 [[deps.GridLayoutBase]]
 deps = ["GeometryBasics", "InteractiveUtils", "Observables"]
-git-tree-sha1 = "678d136003ed5bceaab05cf64519e3f956ffa4ba"
+git-tree-sha1 = "53c7e69a6ffeb26bd594f5a1421b889e7219eeaa"
 uuid = "3955a311-db13-416c-9275-1d80ed98e5e9"
-version = "0.9.1"
+version = "0.9.0"
 
 [[deps.Grisu]]
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
@@ -815,15 +769,15 @@ version = "0.14.5"
 
 [[deps.IntervalSets]]
 deps = ["Dates", "Random", "Statistics"]
-git-tree-sha1 = "3f91cd3f56ea48d4d2a75c2a65455c5fc74fa347"
+git-tree-sha1 = "076bb0da51a8c8d1229936a1af7bdfacd65037e1"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
-version = "0.7.3"
+version = "0.7.2"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "49510dfcb407e572524ba94aeae2fced1f3feb0f"
+git-tree-sha1 = "b3364212fb5d870f724876ffcd34dd8ec6d98918"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.8"
+version = "0.1.7"
 
 [[deps.InvertedIndices]]
 git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
@@ -850,6 +804,12 @@ version = "1.4.0"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "6c38bbe47948f74d63434abed68bdfc8d2c46b99"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.4.23"
 
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
@@ -984,6 +944,12 @@ git-tree-sha1 = "41d162ae9c868218b1f3fe78cba878aa348c2d26"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
 version = "2022.1.0+0"
 
+[[deps.MacroTools]]
+deps = ["Markdown", "Random"]
+git-tree-sha1 = "3d3e902b31198a27340d0bf00d6ac452866021cf"
+uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+version = "0.5.9"
+
 [[deps.Makie]]
 deps = ["Animations", "Base64", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "Distributions", "DocStringExtensions", "FFMPEG", "FileIO", "FixedPointNumbers", "Formatting", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "GridLayoutBase", "ImageIO", "IntervalSets", "Isoband", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "MakieCore", "Markdown", "Match", "MathTeXEngine", "Observables", "OffsetArrays", "Packing", "PlotUtils", "PolygonOps", "Printf", "Random", "RelocatableFolders", "Serialization", "Showoff", "SignedDistanceFields", "SparseArrays", "Statistics", "StatsBase", "StatsFuns", "StructArrays", "UnicodeFun"]
 git-tree-sha1 = "b0323393a7190c9bf5b03af442fc115756df8e59"
@@ -1030,12 +996,6 @@ version = "1.0.2"
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
-[[deps.Mocking]]
-deps = ["Compat", "ExprTools"]
-git-tree-sha1 = "29714d0a7a8083bba8427a4fbfb00a540c681ce7"
-uuid = "78c3b35d-d492-501b-9361-3d52fe80e533"
-version = "0.7.3"
-
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
 git-tree-sha1 = "b34e3bc3ca7c94914418637cb10cc4d1d80d877d"
@@ -1063,9 +1023,9 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
 
 [[deps.Observables]]
-git-tree-sha1 = "5a9ea4b9430d511980c01e9f7173739595bbd335"
+git-tree-sha1 = "dfd8d34871bc3ad08cd16026c1828e271d554db9"
 uuid = "510215fc-4207-5dde-b226-833fc4488ee2"
-version = "0.5.2"
+version = "0.5.1"
 
 [[deps.OffsetArrays]]
 deps = ["Adapt"]
@@ -1124,10 +1084,11 @@ git-tree-sha1 = "85f8e6578bf1f9ee0d11e7bb1b1456435479d47c"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "1.4.1"
 
-[[deps.PCRE2_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
-version = "10.40.0+0"
+[[deps.PCRE_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "b2a7af664e098055a7529ad1a900ded962bca488"
+uuid = "2f80f16e-611a-54ab-bc61-aa92de5b98fc"
+version = "8.44.0+0"
 
 [[deps.PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
@@ -1155,9 +1116,9 @@ version = "0.5.11"
 
 [[deps.Pango_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "FriBidi_jll", "Glib_jll", "HarfBuzz_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "84a314e3926ba9ec66ac097e3635e270986b0f10"
+git-tree-sha1 = "3a121dfbba67c94a5bec9dde613c3d0cbcf3a12b"
 uuid = "36c8627f-9965-5494-a995-c6b170f724f3"
-version = "1.50.9+0"
+version = "1.50.3+0"
 
 [[deps.Parsers]]
 deps = ["Dates"]
@@ -1239,18 +1200,6 @@ git-tree-sha1 = "3c009334f45dfd546a16a57960a821a1a023d241"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 version = "2.5.0"
 
-[[deps.RData]]
-deps = ["CategoricalArrays", "CodecZlib", "DataFrames", "Dates", "FileIO", "Requires", "TimeZones", "Unicode"]
-git-tree-sha1 = "19e47a495dfb7240eb44dc6971d660f7e4244a72"
-uuid = "df47a6cb-8c03-5eed-afd8-b6050d6c41da"
-version = "0.8.3"
-
-[[deps.RDatasets]]
-deps = ["CSV", "CodecZlib", "DataFrames", "FileIO", "Printf", "RData", "Reexport"]
-git-tree-sha1 = "2720e6f6afb3e562ccb70a6b62f8f308ff810333"
-uuid = "ce6b1742-4840-55fa-b093-852dadbb1d8b"
-version = "0.7.7"
-
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1264,12 +1213,6 @@ deps = ["Requires"]
 git-tree-sha1 = "dc84268fe0e3335a62e315a3a7cf2afa7178a734"
 uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
 version = "0.4.3"
-
-[[deps.RecipesBase]]
-deps = ["SnoopPrecompile"]
-git-tree-sha1 = "612a4d76ad98e9722c8ba387614539155a59e30c"
-uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-version = "1.3.0"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1323,9 +1266,9 @@ version = "1.1.1"
 
 [[deps.SentinelArrays]]
 deps = ["Dates", "Random"]
-git-tree-sha1 = "c0f56940fc967f3d5efed58ba829747af5f8b586"
+git-tree-sha1 = "130c68b3497094753bacf084ae59c9eeaefa2ee7"
 uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.3.15"
+version = "1.3.14"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -1384,14 +1327,14 @@ version = "0.1.1"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore", "Statistics"]
-git-tree-sha1 = "f86b3a049e5d05227b10e15dbb315c5b90f14988"
+git-tree-sha1 = "efa8acd030667776248eabb054b1836ac81d92f0"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.5.9"
+version = "1.5.7"
 
 [[deps.StaticArraysCore]]
-git-tree-sha1 = "6b7ba252635a5eff6a0b0664a41ee140a1c9e72a"
+git-tree-sha1 = "ec2bd695e905a3c755b33026954b119ea17f2d22"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-version = "1.4.0"
+version = "1.3.0"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1438,9 +1381,9 @@ version = "1.0.1"
 
 [[deps.Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "TableTraits", "Test"]
-git-tree-sha1 = "2d7164f7b8a066bcfa6224e67736ce0eb54aef5b"
+git-tree-sha1 = "7149a60b01bf58787a1b83dad93f90d4b9afbe5d"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.9.0"
+version = "1.8.1"
 
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
@@ -1462,12 +1405,6 @@ deps = ["ColorTypes", "DataStructures", "DocStringExtensions", "FileIO", "FixedP
 git-tree-sha1 = "70e6d2da9210371c927176cb7a56d41ef1260db7"
 uuid = "731e570b-9d59-4bfa-96dc-6df516fadf69"
 version = "0.6.1"
-
-[[deps.TimeZones]]
-deps = ["Dates", "Downloads", "InlineStrings", "LazyArtifacts", "Mocking", "Printf", "RecipesBase", "Scratch", "Unicode"]
-git-tree-sha1 = "d634a3641062c040fc8a7e2a3ea17661cc159688"
-uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
-version = "1.9.0"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
@@ -1641,57 +1578,59 @@ version = "3.5.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═1fffda88-b222-4eb6-90d5-a7d7dc179ff4
-# ╠═b1284072-99ce-48ac-a902-b350fd9ad3dc
-# ╟─4baf009a-a01d-4b50-baad-508fee233846
-# ╠═71286712-22dc-4ad0-bdad-5003c5814cef
-# ╟─975094ce-2465-417a-9260-63e1dd41e39e
-# ╠═3f8ee97e-f7d8-47a7-861a-6e2782f3990d
-# ╠═eab60046-d543-4a16-8eb4-fbbad82a34f0
-# ╟─ce2b183c-40ae-43fd-a4d4-0920d9e4eeed
-# ╠═f43425b8-3c84-4f3a-8769-1381dd131f16
-# ╠═85b24100-0883-4ff6-ad09-103f4894006c
-# ╠═09d50ad2-5fc0-4578-8d27-d1f53aeb7d0e
-# ╟─aef19e67-11ad-4c59-8e25-b838e017a376
-# ╠═69fa827c-84db-4ac2-8aa9-2bda187be53f
-# ╟─c6eca738-6c2e-47e0-96f2-53f4e1f9d267
-# ╠═1b4d72a3-fb0c-46cf-a651-cf40458134d7
-# ╟─141d7367-4123-4607-844a-39de3a46559b
-# ╠═5ce0008e-a708-49d6-affc-e11606907cc2
-# ╟─9ff60bb2-3a34-4181-951b-d8f02819c3b6
-# ╠═ccdcae4f-2242-43eb-a333-cd1736a51dde
-# ╠═8568efe3-4610-45a3-9a39-a25842a97f37
-# ╟─6d56b9bd-6b73-4962-bb28-3a1e09f69c6e
-# ╠═008f01f9-fe05-4ceb-bc02-b51463add2c4
-# ╟─60d290b8-1353-4d5c-b6e0-dec91859ea25
-# ╠═7f622486-10de-43c7-be47-27a088b760bc
-# ╠═4e02489f-96ff-4fd5-bb1b-2af7556ff788
-# ╠═f5528881-3855-4b3e-9200-5985f22ac861
-# ╠═415e0b9f-1f13-4b48-b5b8-b6d0d890d410
-# ╠═664e1624-639c-4dd3-80d3-9e3c64b3ddaf
-# ╟─8be0ae67-2f7d-435d-a2b7-0722a7d6e28e
-# ╠═d8f93cf5-064e-493e-ad10-5457c8c861a4
-# ╠═a9e4ceb9-2d44-42bc-a891-d19134cd736a
-# ╠═a0a8a005-b9f8-461a-a160-dbe1c1304708
-# ╟─b6c9396a-a9e5-40f3-8bce-e573206ca3f8
-# ╠═d73eb64c-663d-4f5b-8fda-a39543dda27b
-# ╠═6b15f4f9-577c-406c-ad54-b9361b56968f
-# ╟─f2406b5f-a810-4962-9b5f-6efe8f97a79c
-# ╠═59694b4d-dcb5-409e-8e0d-9e1bbc90dab6
-# ╠═2a2c3377-6c23-44f5-8c19-1976408cdfd3
-# ╟─009a4a15-9704-405b-9aa3-c2d5a5f995a8
-# ╠═13f8bce2-728c-4128-af6a-24e2967241e0
-# ╟─04ca01f8-31b7-4aa7-8870-705284f961b7
-# ╠═6f6cced6-6ead-43d2-bfe7-8374641c8fc0
-# ╠═6dfdd6f9-ed6a-425b-8253-71c06b183d25
-# ╟─4f81d47c-32c0-4b0f-8ecc-e143a164aadb
-# ╠═cf04103f-cc40-4f23-be12-c34aa3525b1f
-# ╠═14f634cc-46d4-4cf1-83bd-1a6719a34d7c
-# ╟─de732f20-ff77-4f10-a196-50a1d0de640d
-# ╠═0a1cdfaf-f869-47b7-b7d1-cfd7727a9b32
-# ╠═b0c27c31-34fe-48b8-9acd-ec8ffc480bf7
-# ╠═56184a34-2b88-4a34-921d-072c32e8a4dd
-# ╠═efeab4e8-97ad-415f-9565-d6c131952528
-# ╟─171496f1-1ce0-4971-9aa9-e33ee382e4f4
+# ╠═640a599e-3a27-11ed-069c-f14f3b6633e9
+# ╠═78a8749f-c501-4e7b-bccf-3bdf4d55df92
+# ╟─dbf497fa-f45b-4f75-96c0-3e0a73af0203
+# ╟─2e87f1a8-b943-4317-99b1-8125e99355f2
+# ╠═4f83121f-4b98-4854-adb4-7e11be25b482
+# ╟─60e98df1-e21a-4c8d-ba54-50455b61379c
+# ╠═fd1a78dc-2fb4-48f9-a61c-fa00ecfd367b
+# ╠═6148b291-4b2c-4fa0-a380-35651ded2750
+# ╟─4ec36505-66d9-4cd0-a4c5-e3718d1a5cba
+# ╠═b45e7b0a-8644-4210-bec9-8fd3076b08f4
+# ╟─3a088002-b238-46eb-86f8-483ca5b9a7c2
+# ╠═bc825fb1-5ee5-4d39-9ec2-a99ca8b68e79
+# ╟─89dde6a1-1230-4841-8fca-c2563a54fd4a
+# ╠═a9cf8d6e-1607-44e6-8f74-769ce7bff060
+# ╟─9a6aa8a8-fd6a-4928-bf28-b7444b2e6d3b
+# ╟─e5079f42-2137-459f-a351-ddc22864085a
+# ╠═0edc2e54-6552-4a56-aa03-87ae8886e826
+# ╟─d866aace-c019-4fe3-a77e-d681e1af001f
+# ╠═6d01e662-761f-4f33-89d9-7d29c4196366
+# ╟─cbce6c42-b5db-4b59-8399-495289c3b247
+# ╠═d3a6961d-3f70-4b9e-8bc9-38e8ad91c952
+# ╠═ba93499d-3e10-43b1-91f5-41078459f50a
+# ╟─d80c35e7-ee90-464e-b7b4-6e2250efc3ff
+# ╟─c11fa2f9-a440-4b0e-85ba-27c749f4fccb
+# ╠═b4addc63-8f97-4c15-8e86-e0f5733071ef
+# ╠═95d4cfa4-964d-45f0-8496-6a7beb382072
+# ╠═6fe5a3de-ddda-426a-a072-1db6892f22aa
+# ╟─d4a35029-ff51-41f4-ab80-e9e61455d0c1
+# ╠═d9849427-3389-4040-900b-d4eadc922c7d
+# ╠═4211a63e-c894-45fc-bb38-b13850dcae4d
+# ╟─7aa3e93e-d7f7-41b9-aaeb-0a6f13eca4f5
+# ╠═4d7ed267-7483-4fbb-9e4c-75b9474bb651
+# ╟─74e6ca9d-cb85-43d2-885c-2ab5ddaabe6f
+# ╠═3f2858b0-daec-4e61-9d8d-1ca7bc704428
+# ╟─b51e69d6-e80e-40b5-b835-59665b6cc9c5
+# ╠═54f19024-3808-40c0-91a2-ad36d6a99f9e
+# ╠═dd47e2ed-45b4-4693-afb3-7f03c6c3aa2e
+# ╟─78bd4975-8098-44d6-91ec-977540a11644
+# ╠═643006b0-d36e-4c7d-8179-5e52fa3366e1
+# ╟─aa4fa8e2-f34f-43ab-859d-21322c15e6d2
+# ╠═05b591a7-b70b-473c-9ad1-706e5bf95c0c
+# ╠═24ce43ec-89ae-4175-9837-c0ddffdee98f
+# ╟─1ed3b8a8-34c4-44e5-876d-cecc4806a122
+# ╠═6d65a99e-455b-4fa0-be1a-0ef77e368913
+# ╟─59e6635c-f01f-4fc3-bb5a-873e2a88ff38
+# ╠═15d303b5-61c5-450e-8301-d7d2f0e822eb
+# ╟─de00d71a-52c0-4879-9b2d-fc9f8b5e3f94
+# ╠═bab8f895-0913-49fb-ab6b-e49f0ab9af6a
+# ╠═09076209-2dba-4314-b138-f209dbd68d3f
+# ╠═dfde3f3c-0b73-401c-9d63-2dc5d2a2eadd
+# ╟─8781b9bc-25e3-471f-a478-877223186f4b
+# ╠═ef063d0c-cf6f-4fe4-9f30-890a7e54bed9
+# ╠═12717627-4edc-445f-84df-5c3cc4c99a1c
+# ╟─27301229-b35e-4fb0-8bf9-c6fe43434821
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

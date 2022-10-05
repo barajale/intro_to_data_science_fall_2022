@@ -163,6 +163,9 @@ push!(city_data, ["bogus", "blah", 0, 100.0])
 # ╔═╡ b7fb0648-0390-11eb-2dc5-8b6935d2545c
 delete!(city_data, 6)
 
+# ╔═╡ cfa255ee-382a-4097-8ecf-0a2085bd9b92
+city_data[5, :]
+
 # ╔═╡ b8de77aa-0362-11eb-36d9-1d905442ca13
 md"
 ### delete duplicate rows
@@ -234,7 +237,7 @@ use the `filter` function. see [the docs](https://dataframes.juliadata.org/stabl
 "
 
 # ╔═╡ 5abb815e-0392-11eb-3576-a7e39e8ac6af
-filter(row -> row["city"] == "Corvallis", city_data)
+filter(row -> row["city"] == "Corvallis" || row["city"] == "Eugene", city_data)
 
 # ╔═╡ 6ca4c6a8-035d-11eb-158c-3380a0cafdaa
 md"**example 2**: query all cities (rows) where the population is less than 500,000."
@@ -255,7 +258,7 @@ e.g. permute rows so that cities are listed by `:population` in reverse (`rev`) 
 "
 
 # ╔═╡ ab918a54-035d-11eb-27ae-2d70b27460ac
-sort!(city_data, "population", rev=true)
+sort!(city_data, ["population"], rev=true)
 
 # ╔═╡ 9ed15498-035d-11eb-1369-53ae1eac0a27
 md"
@@ -274,6 +277,9 @@ md"the `GroupedDataFrame` works like an array and can be iterated over."
 
 # ╔═╡ ed1a5928-be8b-4cd1-b9b8-2ed8c9e75996
 gb_state[1]
+
+# ╔═╡ 02ced577-2b37-4b1b-b089-f7d2eb26c240
+typeof(gb_state)
 
 # ╔═╡ e80a4a9a-0392-11eb-2d35-09bb527d7a29
 for df_by_state in gb_state
@@ -425,7 +431,10 @@ dropmissing(data_oj)
 md"...only rows with a `missing` entry in a certain column."
 
 # ╔═╡ 3edf858c-0362-11eb-3b47-5f53c1360718
-dropmissing(data_oj, "state")
+dropmissing(data_oj, ["state", "per_capita_income"])
+
+# ╔═╡ f25b375c-a978-48f9-90a1-85e98c9ed911
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -840,6 +849,7 @@ version = "17.4.0+0"
 # ╟─581bfc10-0362-11eb-1b29-cfd4320a5130
 # ╠═a583d38b-c309-4b61-8820-159d67bf6874
 # ╠═b7fb0648-0390-11eb-2dc5-8b6935d2545c
+# ╠═cfa255ee-382a-4097-8ecf-0a2085bd9b92
 # ╟─b8de77aa-0362-11eb-36d9-1d905442ca13
 # ╠═9063e224-053b-46a7-9ff1-bb550fa57964
 # ╠═cbf6250c-0362-11eb-365b-d327617f197e
@@ -865,6 +875,7 @@ version = "17.4.0+0"
 # ╠═c1526020-035d-11eb-2d8a-d131aa445738
 # ╟─c106f1b5-946c-44a1-bb63-ad3342adb6aa
 # ╠═ed1a5928-be8b-4cd1-b9b8-2ed8c9e75996
+# ╠═02ced577-2b37-4b1b-b089-f7d2eb26c240
 # ╠═e80a4a9a-0392-11eb-2d35-09bb527d7a29
 # ╟─4dd5195c-035e-11eb-1991-3fd9e7bf5d25
 # ╠═03a59b6c-035f-11eb-0a39-79c770bf5544
@@ -896,5 +907,6 @@ version = "17.4.0+0"
 # ╠═36ba914e-0362-11eb-0aa7-6fda9f1b4d02
 # ╟─38ab5560-0362-11eb-15cb-4595de21d218
 # ╠═3edf858c-0362-11eb-3b47-5f53c1360718
+# ╠═f25b375c-a978-48f9-90a1-85e98c9ed911
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
