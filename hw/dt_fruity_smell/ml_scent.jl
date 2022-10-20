@@ -1,19 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.19.13
+# v0.19.11
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ c4c85f7a-4c12-11ed-266d-a71f1fde33f8
-using CSV, DataFrames, ScikitLearn, MolecularGraphKernels, CairoMakie, ColorSchemes, GraphViz, RDKitMinimalLib, PlutoUI
-
-# ╔═╡ c64b517f-1351-48c5-8fab-73ab5294334e
- begin
-	# import functions from scikitlearn
-	@sk_import metrics : confusion_matrix
-	@sk_import tree : DecisionTreeClassifier
-	@sk_import tree : plot_tree
-end
+using CSV, DataFrames, ScikitLearn, MolecularGraphKernels, CairoMakie, ColorSchemes, GraphViz, RDKitMinimalLib, PlutoUI, FileIO
 
 # ╔═╡ 51633144-4549-438b-9173-29918bcda346
 md"# classifying a molecule as smelling fruity or not via a decision tree
@@ -39,6 +31,14 @@ md"!!! note
 	* consult the `Scikitlearn.jl` Julia docs [here](https://cstjean.github.io/ScikitLearn.jl/dev/man/python/) to see how to import `scikit-learn` functions into Julia. below, I do this for you.
 "
 
+# ╔═╡ c64b517f-1351-48c5-8fab-73ab5294334e
+ begin
+	# import functions from scikitlearn
+	@sk_import metrics : confusion_matrix
+	@sk_import tree : DecisionTreeClassifier
+	@sk_import tree : plot_tree
+end
+
 # ╔═╡ 17f913e8-0b76-463f-8354-02744f096ab6
 md"## read in raw data
 
@@ -48,19 +48,26 @@ the data table `fruity.csv` [here](https://raw.githubusercontent.com/SimonEnsemb
 "
 
 # ╔═╡ eab25b4b-3ab9-4b65-89b8-f3eaf535282a
-odor = "fruity"
+begin
+	download("https://raw.githubusercontent.com/SimonEnsemble/intro_to_data_science_fall_2022/main/hw/dt_fruity_smell/fruity.csv", "data.csv")
+	data = CSV.read("data.csv", DataFrame)
+	odor = "fruity"
+end
 
 # ╔═╡ 0ae7bc0b-689e-4b34-8783-bb518bf3d7de
+data
 
 # ╔═╡ 793170c3-9031-415a-b592-b86735f3272e
 md"🥝 how many uniuque molecules are in the data set?"
 
 # ╔═╡ 070ff73c-2159-419e-aeaf-76118eb92f73
+length(unique(data[:,"molecule"]))
 
 # ╔═╡ 700584de-1b6c-4414-ac90-2137e5566095
 md"🥝 use `combine` and `groupby` to determine how many molecules have the fruity olfactory label and how many do not."
 
 # ╔═╡ 71d32941-d7f6-45bd-b347-5717c65d3b29
+combine(groupby(data, "fruity odor"), "fruity odor" => length => "fruity count")
 
 # ╔═╡ fcf7c6d5-dd8c-4d9f-8c5a-c4a13f33a44a
 md"## featurizing the molecules to obtain `X`
@@ -77,23 +84,61 @@ a decision tree takes as input a fixed-size vector representation of each exampl
 "
 
 # ╔═╡ c2528ff3-de8b-4f3c-979a-88c5f3e21d1b
+begin
+	X = falses(nrow(data), 166)
+	data[!,"maccs_fp_count"] = zeros(length(data[:,"molecule"]))
+	
+	for (i, row) in enumerate(eachrow(data))
+		X[i, :] = MolecularGraphKernels.maccs_fp(row["molecule"])
+		data[i,"maccs_fp_count"] = sum(X[i,:])
+	end
+end
 
 # ╔═╡ 2e906f65-6175-4681-9441-190b1f536ba0
+X
 
 # ╔═╡ 9d0aae10-caa5-4d44-a095-fadf5bb97d37
 md"🥝 use the `heatmap` function to visualize the MACCS fingerprints of the molecules. this will show you which bits are on and off."
 
 # ╔═╡ a53cbbf9-0b4e-4cc1-a174-4086ecb85b63
+heatmap(transpose(X))
 
 # ╔═╡ 1ae86cb8-6da7-47ba-8c03-42bc485396b8
 md"🥝 visualize the distribution of the # of MACCS bits activated per molecule."
 
 # ╔═╡ b3b795ff-7439-4b74-9d67-eef24c5b49a4
+begin
+	local fig = Figure()
+	local ax = Axis(fig[1, 1])
+	hist!(data[:, "maccs_fp_count"], color="limegreen", strokecolor=:black, strokewidth=1)
+	ylims!(0, nothing)
+	fig
+end
 
 # ╔═╡ 25200c84-03a2-4f71-b480-ec206976abbf
 md"🥝 visualize the distribution of the # of molecules in the data set that activate a MACCS bit."
 
 # ╔═╡ a1246cc6-da21-4576-859c-d88c87b45cc9
+begin
+	count_vector = zeros(166)
+	for (i, col) in enumerate(eachcol(X))
+		count_vector[i] = sum(X[i,:])
+	end
+	local fig = Figure()
+	local ax = Axis(fig[1, 1],
+		title="distribution of the # of molecules in the data set that activate a MACCS bit", 
+		xlabel="bits",
+	    ylabel="Number of Molecules",
+		xticks = collect(0:5:166),
+		xticklabelsize = 10
+
+		
+	)
+	barplot!(1:length(count_vector), count_vector, color="blue",
+		strokecolor=:black, strokewidth=1)
+	ylims!(0, nothing)
+	fig
+end
 
 # ╔═╡ df61f5aa-ff37-46c5-8c0b-a5e4ddb9ae6c
 md"## the target vector, `y`
@@ -105,6 +150,7 @@ md"## the target vector, `y`
 "
 
 # ╔═╡ 518d2d5a-219a-4a66-b035-2fd6844cebd4
+y = data[:,"fruity odor"]
 
 # ╔═╡ 1d261a3b-fb53-4432-a50a-8887f381c433
 md"## test/train split
@@ -123,24 +169,30 @@ because the data set is imbalanced in terms of the labels (i.e. not a 50/50 spli
 
 # ╔═╡ 2ae186dd-2c0f-4e15-82a7-ea8d83d64639
 
+
 # ╔═╡ 44c1b24d-72e9-43d0-99d7-0a50182d2d9e
 md"🥝 by checking the length of your `ids_train` and `ids_test` arrays, how many molecules are in the train and test sets?"
 
 # ╔═╡ c6f72c7f-f74c-4608-a716-a7e1e7e0ae5f
 
+
 # ╔═╡ 66ef5101-9a55-4bb3-9e4c-fae17e1dacfd
+
 
 # ╔═╡ ea5c52d8-1e32-456c-a75e-a7a6e7987472
 md"🥝 create new arrays `X_train`, `y_train`, `X_test`, and `y_test` that slice the appropriate rows of `X` and `y` so that they contain only the train/test data. "
 
 # ╔═╡ 0407f561-e737-4477-a92b-7a650510cf5f
 
+
 # ╔═╡ 5450f7d6-f1fe-4659-90c5-af89a1a34adf
 md"🥝 to check that the _stratified_ split worked correctly, what fraction of the training molecules smell fruity? what fraction of the test molecules?"
 
 # ╔═╡ 083af0db-b7c5-4a82-9f6a-4dcf4a43df33
 
+
 # ╔═╡ d3bdc700-be19-4616-8e64-1eda2f42ddad
+
 
 # ╔═╡ c855ccdf-215e-4537-84b1-34d5b203b1d5
 md"## training a decision tree (without tuning 👀)
@@ -150,7 +202,9 @@ md"## training a decision tree (without tuning 👀)
 
 # ╔═╡ 01b581a3-174b-4f5f-aef1-42821fbc4718
 
+
 # ╔═╡ 432b0872-89e1-4565-90b8-9f7f5df40294
+
 
 # ╔═╡ e6dac7df-a419-4ad6-8b15-eefc4299f284
 md"🥝 explain what the following hyperparameters of the decision tree are doing. what are their default values?
@@ -165,6 +219,7 @@ md"🥝 what is the depth of your trained decision tree? see the [`get_depth` fu
 
 # ╔═╡ a66e3a3e-e7ca-4564-aa8d-f757fa6f8f7c
 
+
 # ╔═╡ f3793699-bfef-48b0-909a-98486a6be025
 md"## evaluating the decision tree"
 
@@ -174,14 +229,18 @@ md"🥝 use the [`score` function](https://scikit-learn.org/stable/modules/gener
 
 # ╔═╡ 39bf16e9-40db-45b1-a95f-e1c5c6c81117
 
+
 # ╔═╡ 2c387392-f407-4ed9-bfe2-d526de84e4ea
+
 
 # ╔═╡ 09aa5763-328b-45b9-b7d9-371b667a0f9c
 md"🥝 to make sure you understand the meaning of _accuracy_, compute the accuracy on the test data yourself by (i) using the decision tree to make predictions on the molecules in the test set using the [`predict` function](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html#sklearn.tree.DecisionTreeClassifier.predict) then (ii) doing an element-wise comparison with `y_test`."
 
 # ╔═╡ a72a0c22-2a07-4357-ae04-3ae8718ce2e4
 
+
 # ╔═╡ 06ff735a-0e5a-4a2d-bad5-8831d7d62b79
+
 
 # ╔═╡ 669b8c61-fe8d-41a9-9136-e08c52387e30
 md"🥝 thinking of \"smells fruity\" as a \"positive\", also compute the [precision and recall](https://en.wikipedia.org/wiki/Precision_and_recall) on the test set."
@@ -196,6 +255,7 @@ md"🥝 thinking of \"smells fruity\" as a \"positive\", also compute the [preci
 md"🥝 compute and visualize the _confusion matrix_ on the _test_ data using the [`confusion_matrix` function](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html). I provide a function below to visualize the confusion matrix. make sure you understand what the confusion matrix is conveying."
 
 # ╔═╡ b98d884e-e73e-4609-b87b-1bffdf3e4ea3
+
 
 # ╔═╡ 9dbdd088-1bc7-41cb-b26c-c57dd3f1b987
 function viz_confusion(cm::Matrix; odor="fruity")
@@ -225,17 +285,22 @@ end
 
 # ╔═╡ 4d421837-8f95-4f81-9d3f-29a962dcbf30
 
+
 # ╔═╡ 549ccec9-2a45-4a61-bdeb-b92b619f2a53
 md"🥝 is this performance good? how can we judge whether a machine learning model is useful/worthy or not? it is always a good idea to report the performance of a baseline model. a naive baseline model is to randomly guess whether a molecule smells fruity or not, based on the proportion of fruity molecules in the training set. what does the confusion matrix look like for this baseline model?
 "
 
 # ╔═╡ 88b38962-3a53-4519-a0df-91f6ef56ab69
 
+
 # ╔═╡ 38f88f6a-c751-4328-b4f0-f3104ba7fdd7
+
 
 # ╔═╡ 96da02dd-d37a-4c26-a10e-79434c9e3d3e
 
+
 # ╔═╡ b4ace69a-1f3b-45e0-b730-ddc69838f7d2
+
 
 # ╔═╡ 784d1b91-aa24-4dd8-b654-230fc62c0ca6
 md"## training a decision tree (with hyperparameter tuning 😎)
@@ -247,9 +312,12 @@ we now treat the `max_depth` parameter of the decision tree classifier as a tuna
 
 # ╔═╡ d7f028b9-fc4d-4b7b-a1bb-83a722a28257
 
+
 # ╔═╡ a5b571ba-aedf-4f2a-a3c5-d822bd6866c1
 
+
 # ╔═╡ 22c2e2a1-6d20-404e-9f57-eb9c9d6b9818
+
 
 # ╔═╡ 8e6b9f25-2720-4deb-83df-558475b4f680
 md"🥝 through $K=5$ folds cross-validation, let's determine the optimal `max_depth` parameter of the decision tree among $\{1, 2, ..., 20\}$. loop over each `max_depth` parameter. nested within that loop, loop over the $K=5$ folds, unpack the train/test indices (referring to the rows of `X_train` and `y_train`), train a decision tree with that `max_depth` and that chunk of training data, and compute the accuracy on that test chunk of data. ultimately, we need a length-20 array `kf_accuracy` containing the mean accuracy over the K=5 folds of test data for each `max_depth`.
@@ -260,22 +328,30 @@ md"🥝 through $K=5$ folds cross-validation, let's determine the optimal `max_d
 
 # ╔═╡ 883a4e5a-02a6-4e25-87f9-a30858811fcc
 
+
 # ╔═╡ 0be4ead7-36c2-45a3-a8d5-4e07379096a4
 
+
 # ╔═╡ ad7d348e-7169-4ae4-82f8-6e39c09ab25c
+
 
 # ╔═╡ 9d2b2e4b-9d15-408d-b687-58f759aa8245
 md"🥝 finally, train a decision tree _with the optimal max depth_, using _all_ of the training data. re-plot the confusion matrix on the _test_ data. did the performance on the test data improve?"
 
 # ╔═╡ 7daad1fc-fe82-4de7-8066-a196ea3c096e
 
+
 # ╔═╡ 1943a4aa-df4a-45bd-9804-1901fa361295
+
 
 # ╔═╡ 7cbef9fb-6a76-47d7-8aa3-2e5819223f74
 
+
 # ╔═╡ 674c78b8-8d17-438f-afd8-ee6f438d4c87
 
+
 # ╔═╡ a4f2081e-342c-4884-9bf8-2f26e132223e
+
 
 # ╔═╡ ce971ec4-efdb-4c8b-a631-a2f418396562
 md"🥝 one advantage of a decision tree is interpretability. you can look at each decision as a data point percolates down the tree. use `plot_tree` to visualize the decision tree. this requires matplotlib. the code below worked for me. what is the first decision in the tree? what chemistry is this split looking at (keep in mind, Python is indexed at 0)? see [here](https://github.com/rdkit/rdkit/blob/master/rdkit/Chem/MACCSkeys.py) for a list of the SMARTS patterns involved in MAACS fingerprints. [this website](https://smarts.plus/) may be helpful to understand the pattern the SMARTS string is looking for.
@@ -290,9 +366,12 @@ f.savefig(\"decistion_tree.pdf\", format=\"pdf\")
 
 # ╔═╡ 93d6bae8-742c-4252-99ec-429697a19e9c
 
+
 # ╔═╡ 0c86eb99-984b-46bc-bf18-45eeef91d9bd
 
+
 # ╔═╡ 5beea462-a68a-4e70-9981-c665bae27766
+
 
 # ╔═╡ 45da6eee-e99d-4345-8225-8497b3f75763
 md"🥝 this data set is highly biased. the molecules were chosen due to their potential to smell pleasantly, for perfume companies. your decision tree was trained on this biased sample. do you suspect the accuracy of the decision tree to be retained if it is deployed to predict whether or not molecules in a chemistry lab on campus will smell fruity or not? to learn more about \"distribution shift\" in machine learning, see [these slides](https://docs.google.com/presentation/d/1tuCIbk9Pye-RK1xqiiZXPzT8lIgDUL6CqBkFSYZXkbY/edit).
@@ -305,12 +384,11 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 GraphViz = "f526b714-d49f-11e8-06ff-31ed36ee7ee0"
 MLJBase = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 RDKitMinimalLib = "44044271-7623-48dc-8250-42433c44e4b7"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
@@ -319,12 +397,11 @@ CSV = "~0.10.4"
 CairoMakie = "~0.9.0"
 ColorSchemes = "~3.19.0"
 DataFrames = "~1.3.6"
+FileIO = "~1.16.0"
 GraphViz = "~0.2.0"
 MLJBase = "~0.20.20"
 MolecularGraphKernels = "~0.5.3"
 PlutoUI = "~0.7.46"
-PyCall = "~1.94.1"
-PyPlot = "~2.11.0"
 RDKitMinimalLib = "~1.1.2"
 ScikitLearn = "~0.6.4"
 """
@@ -333,9 +410,9 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.2"
+julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "0ac119dd47971dbf082912bcff9199322f0bc659"
+project_hash = "2e21f08243201f9e67e0b38b47d3507d1a79a20a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -1396,12 +1473,6 @@ git-tree-sha1 = "53b8b07b721b77144a0fbbbc2675222ebf40a02d"
 uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 version = "1.94.1"
 
-[[deps.PyPlot]]
-deps = ["Colors", "LaTeXStrings", "PyCall", "Sockets", "Test", "VersionParsing"]
-git-tree-sha1 = "f9d953684d4d21e947cb6d642db18853d43cb027"
-uuid = "d330b81b-6aea-500a-939a-2ce795aea3ee"
-version = "2.11.0"
-
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
 git-tree-sha1 = "18e8f4d1426e965c7b532ddd260599e1510d26ce"
@@ -1673,7 +1744,7 @@ version = "1.10.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
-version = "1.10.1"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
