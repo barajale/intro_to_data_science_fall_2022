@@ -1,11 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.14
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ c4c85f7a-4c12-11ed-266d-a71f1fde33f8
-using CSV, DataFrames, ScikitLearn, MolecularGraphKernels, CairoMakie, ColorSchemes, GraphViz, RDKitMinimalLib, PlutoUI, FileIO
+using CSV, DataFrames, ScikitLearn, MolecularGraphKernels, CairoMakie, ColorSchemes, GraphViz, RDKitMinimalLib, PlutoUI, FileIO, Random
 
 # ╔═╡ 51633144-4549-438b-9173-29918bcda346
 md"# classifying a molecule as smelling fruity or not via a decision tree
@@ -122,7 +122,7 @@ md"🥝 visualize the distribution of the # of molecules in the data set that ac
 begin
 	count_vector = zeros(166)
 	for (i, col) in enumerate(eachcol(X))
-		count_vector[i] = sum(X[i,:])
+		count_vector[i] = sum(X[:,i])
 	end
 	local fig = Figure()
 	local ax = Axis(fig[1, 1],
@@ -140,6 +140,9 @@ begin
 	fig
 end
 
+# ╔═╡ 49ffc81a-f1c2-4b70-aa2d-ce67f4f62808
+X
+
 # ╔═╡ df61f5aa-ff37-46c5-8c0b-a5e4ddb9ae6c
 md"## the target vector, `y`
 
@@ -151,6 +154,9 @@ md"## the target vector, `y`
 
 # ╔═╡ 518d2d5a-219a-4a66-b035-2fd6844cebd4
 y = data[:,"fruity odor"]
+
+# ╔═╡ 86a8a3f1-475a-479e-9d4a-a646605dcd93
+true_ratio = sum(y) / length(y)
 
 # ╔═╡ 1d261a3b-fb53-4432-a50a-8887f381c433
 md"## test/train split
@@ -167,32 +173,40 @@ because the data set is imbalanced in terms of the labels (i.e. not a 50/50 spli
 	`ids_train, ids_test = partition(1:10, 0.2, 0.2, shuffle=true, stratify=vcat(ones(3), zeros(7)))`.
 "
 
-# ╔═╡ 2ae186dd-2c0f-4e15-82a7-ea8d83d64639
-
+# ╔═╡ cd0e15df-270f-4403-8944-3bf1ba514ca4
+ids_train, ids_test = partition(1:nrow(data), 0.75, shuffle=true,stratify=(y))
 
 # ╔═╡ 44c1b24d-72e9-43d0-99d7-0a50182d2d9e
 md"🥝 by checking the length of your `ids_train` and `ids_test` arrays, how many molecules are in the train and test sets?"
 
 # ╔═╡ c6f72c7f-f74c-4608-a716-a7e1e7e0ae5f
-
-
-# ╔═╡ 66ef5101-9a55-4bb3-9e4c-fae17e1dacfd
-
+begin
+	println("size of ids_test - ", length(ids_test))
+	println("size of ids_train - ", length(ids_train))
+	(length(ids_test) + length(ids_train)) == nrow(data)
+end
 
 # ╔═╡ ea5c52d8-1e32-456c-a75e-a7a6e7987472
 md"🥝 create new arrays `X_train`, `y_train`, `X_test`, and `y_test` that slice the appropriate rows of `X` and `y` so that they contain only the train/test data. "
 
-# ╔═╡ 0407f561-e737-4477-a92b-7a650510cf5f
-
+# ╔═╡ 267cce68-79c1-4f70-baac-2ed7da51ef94
+begin
+	X_test = X[ids_test, :]
+	X_train = X[ids_train, :]
+	
+	y_test = y[ids_test,:]
+	y_train = y[ids_train,:]
+end
 
 # ╔═╡ 5450f7d6-f1fe-4659-90c5-af89a1a34adf
 md"🥝 to check that the _stratified_ split worked correctly, what fraction of the training molecules smell fruity? what fraction of the test molecules?"
 
 # ╔═╡ 083af0db-b7c5-4a82-9f6a-4dcf4a43df33
-
-
-# ╔═╡ d3bdc700-be19-4616-8e64-1eda2f42ddad
-
+begin
+	println("True ratio: ", true_ratio)
+	println("Train ratio: ", sum(y_train) / length(y_train)) 
+	println("Test ratio: ",sum(y_test) / length(y_test)) 
+end
 
 # ╔═╡ c855ccdf-215e-4537-84b1-34d5b203b1d5
 md"## training a decision tree (without tuning 👀)
@@ -201,10 +215,10 @@ md"## training a decision tree (without tuning 👀)
 "
 
 # ╔═╡ 01b581a3-174b-4f5f-aef1-42821fbc4718
-
+model = DecisionTreeClassifier()
 
 # ╔═╡ 432b0872-89e1-4565-90b8-9f7f5df40294
-
+fit!(model, X_train, y_train)
 
 # ╔═╡ e6dac7df-a419-4ad6-8b15-eefc4299f284
 md"🥝 explain what the following hyperparameters of the decision tree are doing. what are their default values?
@@ -214,11 +228,14 @@ md"🥝 explain what the following hyperparameters of the decision tree are doin
 * `min_samples_leaf`
 "
 
+# ╔═╡ 1af62cbb-5583-4ef8-aae2-016df7683dd6
+
+
 # ╔═╡ ddce9803-c97f-4cd1-99e8-07daabad7af7
 md"🥝 what is the depth of your trained decision tree? see the [`get_depth` function](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html#sklearn.tree.DecisionTreeClassifier.get_depth)."
 
 # ╔═╡ a66e3a3e-e7ca-4564-aa8d-f757fa6f8f7c
-
+model.get_depth()
 
 # ╔═╡ f3793699-bfef-48b0-909a-98486a6be025
 md"## evaluating the decision tree"
@@ -228,19 +245,38 @@ md"🥝 use the [`score` function](https://scikit-learn.org/stable/modules/gener
 "
 
 # ╔═╡ 39bf16e9-40db-45b1-a95f-e1c5c6c81117
-
+training_score = model.score(X_train, y_train)
 
 # ╔═╡ 2c387392-f407-4ed9-bfe2-d526de84e4ea
+testing_score = model.score(X_test, y_test)
 
+# ╔═╡ f759d732-3034-49f1-ac2e-da3fede120a8
+md" The training: $training_score is pretty accurate however, this is expected giving the tree was trained on this data set. The testing score: $testing_score is less impressive and shows how our model has overfit our training data. Good start with no adjustments"
 
 # ╔═╡ 09aa5763-328b-45b9-b7d9-371b667a0f9c
 md"🥝 to make sure you understand the meaning of _accuracy_, compute the accuracy on the test data yourself by (i) using the decision tree to make predictions on the molecules in the test set using the [`predict` function](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html#sklearn.tree.DecisionTreeClassifier.predict) then (ii) doing an element-wise comparison with `y_test`."
 
-# ╔═╡ a72a0c22-2a07-4357-ae04-3ae8718ce2e4
+# ╔═╡ d03b2044-531d-4f41-9825-25db521165ce
+begin
+	y_train_predict = vec(model.predict(X_train))
+	y_test_predict = vec(model.predict(X_test))
+end
 
+# ╔═╡ c75647c0-435b-4761-badf-01d5cc44765c
+begin
+	println(sum(y_train_predict .== y_train) / length(y_train))
+	println(sum(y_test_predict .== y_test) / length(y_test))
+end
 
-# ╔═╡ 06ff735a-0e5a-4a2d-bad5-8831d7d62b79
-
+# ╔═╡ 77b67d75-1679-4a12-a43d-34e783ae6ddf
+# begin
+# 	count = 0
+# 	for (i, row) in enumerate( eachrow( y_train ) )
+# 		if y_pred[i,:] == row
+# 			count += 1
+# 		end
+# 	end
+# end
 
 # ╔═╡ 669b8c61-fe8d-41a9-9136-e08c52387e30
 md"🥝 thinking of \"smells fruity\" as a \"positive\", also compute the [precision and recall](https://en.wikipedia.org/wiki/Precision_and_recall) on the test set."
@@ -248,14 +284,17 @@ md"🥝 thinking of \"smells fruity\" as a \"positive\", also compute the [preci
 # ╔═╡ e6ca846a-250e-4956-866b-2db6f88a3d46
 # of those predicted to be fruity, what fraction are truly fruity?
 
+# ╔═╡ 386b034e-926d-4b53-884c-ac91bd50db7f
+print("fruity? == fruity: ", sum(y_test_predict .& y_test) / sum(y_test_predict))
+
 # ╔═╡ cc914a7f-22c6-40fa-a5eb-e42287f510bd
 # of those truly fruity, what fraction are predicted fruity?
 
+# ╔═╡ f0d34993-869e-47c9-84ae-703c8f90ec14
+print("fruity == fruity?: ",sum(y_test .& y_test_predict) / sum(y_test))
+
 # ╔═╡ 2babeadd-007c-4ccf-b28a-ac405f02a5bb
 md"🥝 compute and visualize the _confusion matrix_ on the _test_ data using the [`confusion_matrix` function](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html). I provide a function below to visualize the confusion matrix. make sure you understand what the confusion matrix is conveying."
-
-# ╔═╡ b98d884e-e73e-4609-b87b-1bffdf3e4ea3
-
 
 # ╔═╡ 9dbdd088-1bc7-41cb-b26c-c57dd3f1b987
 function viz_confusion(cm::Matrix; odor="fruity")
@@ -283,8 +322,11 @@ function viz_confusion(cm::Matrix; odor="fruity")
 	return fig
 end
 
-# ╔═╡ 4d421837-8f95-4f81-9d3f-29a962dcbf30
+# ╔═╡ b98d884e-e73e-4609-b87b-1bffdf3e4ea3
+viz_confusion(confusion_matrix(y_test, y_test_predict))
 
+# ╔═╡ 6c478b5d-a6bd-4d17-991d-54ad0390def8
+viz_confusion(confusion_matrix(y_train, y_train_predict))
 
 # ╔═╡ 549ccec9-2a45-4a61-bdeb-b92b619f2a53
 md"🥝 is this performance good? how can we judge whether a machine learning model is useful/worthy or not? it is always a good idea to report the performance of a baseline model. a naive baseline model is to randomly guess whether a molecule smells fruity or not, based on the proportion of fruity molecules in the training set. what does the confusion matrix look like for this baseline model?
@@ -310,14 +352,10 @@ we now treat the `max_depth` parameter of the decision tree classifier as a tuna
 🥝 prepare for $K=5$-fold cross validation to optimize the `max_depth` parameter. use `StratifiedCV` and `train_test_pairs` (see [here](https://docs.juliahub.com/MLJBase/jaWQl/0.18.21/resampling/#MLJBase.StratifiedCV)) to create an iterator over `(id_kf_train, id_kf_test)` tuples that give the indices of the training data that are further split into 5 rounds of train/test splits---in a way that the label distribution is preserved in the splits (hence, _stratified_).
 "
 
-# ╔═╡ d7f028b9-fc4d-4b7b-a1bb-83a722a28257
-
-
-# ╔═╡ a5b571ba-aedf-4f2a-a3c5-d822bd6866c1
-
-
 # ╔═╡ 22c2e2a1-6d20-404e-9f57-eb9c9d6b9818
-
+(id_kf_train, id_kf_test) = train_test_pairs(
+		StratifiedCV(; nfolds=5, shuffle=true,rng=Random.GLOBAL_RNG),
+		1:length(y_train), y_train)	
 
 # ╔═╡ 8e6b9f25-2720-4deb-83df-558475b4f680
 md"🥝 through $K=5$ folds cross-validation, let's determine the optimal `max_depth` parameter of the decision tree among $\{1, 2, ..., 20\}$. loop over each `max_depth` parameter. nested within that loop, loop over the $K=5$ folds, unpack the train/test indices (referring to the rows of `X_train` and `y_train`), train a decision tree with that `max_depth` and that chunk of training data, and compute the accuracy on that test chunk of data. ultimately, we need a length-20 array `kf_accuracy` containing the mean accuracy over the K=5 folds of test data for each `max_depth`.
@@ -327,7 +365,12 @@ md"🥝 through $K=5$ folds cross-validation, let's determine the optimal `max_d
 "
 
 # ╔═╡ 883a4e5a-02a6-4e25-87f9-a30858811fcc
-
+begin
+	best_max_depth = 0
+	for i in 1:20
+		
+	end
+end
 
 # ╔═╡ 0be4ead7-36c2-45a3-a8d5-4e07379096a4
 
@@ -390,10 +433,11 @@ MLJBase = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 RDKitMinimalLib = "44044271-7623-48dc-8250-42433c44e4b7"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
 [compat]
-CSV = "~0.10.4"
+CSV = "~0.10.6"
 CairoMakie = "~0.9.0"
 ColorSchemes = "~3.19.0"
 DataFrames = "~1.3.6"
@@ -401,7 +445,7 @@ FileIO = "~1.16.0"
 GraphViz = "~0.2.0"
 MLJBase = "~0.20.20"
 MolecularGraphKernels = "~0.5.3"
-PlutoUI = "~0.7.46"
+PlutoUI = "~0.7.48"
 RDKitMinimalLib = "~1.1.2"
 ScikitLearn = "~0.6.4"
 """
@@ -412,7 +456,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "2e21f08243201f9e67e0b38b47d3507d1a79a20a"
+project_hash = "42450b26ad9ad7ef9cee35cb63ae50bb2f507718"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -427,9 +471,9 @@ uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
 
 [[deps.AbstractTrees]]
-git-tree-sha1 = "5c0b629df8a5566a06f5fef5100b53ea56e465a0"
+git-tree-sha1 = "52b3b436f8f73133d7bc3a6c71ee7ed6ab2ab754"
 uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.4.2"
+version = "0.4.3"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -495,10 +539,10 @@ uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
 version = "0.4.2"
 
 [[deps.CSV]]
-deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
-git-tree-sha1 = "873fb188a4b9d76549b81465b1f75c82aaf59238"
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "SnoopPrecompile", "Tables", "Unicode", "WeakRefStrings"]
+git-tree-sha1 = "76c8d77a76c564bbc39ae351c075ef3cafceef83"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.4"
+version = "0.10.6"
 
 [[deps.Cairo]]
 deps = ["Cairo_jll", "Colors", "Glib_jll", "Graphics", "Libdl", "Pango_jll"]
@@ -676,9 +720,9 @@ version = "0.25.76"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
-git-tree-sha1 = "5158c2b41018c5f7eb1470d558127ac274eca0c9"
+git-tree-sha1 = "c36550cb29cbe373e95b3f40486b9a4148f89ffd"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-version = "0.9.1"
+version = "0.9.2"
 
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
@@ -1391,9 +1435,9 @@ version = "2.4.2"
 
 [[deps.PeriodicTable]]
 deps = ["Base64", "Test", "Unitful"]
-git-tree-sha1 = "62c3776ca32ce692f0c65d352f05967642f44171"
+git-tree-sha1 = "5ed1e2691eb13b6e955aff1b7eec0b2401df208c"
 uuid = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
-version = "1.1.2"
+version = "1.1.3"
 
 [[deps.Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1420,9 +1464,9 @@ version = "1.3.1"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
-git-tree-sha1 = "47a31ed1dd7d30173cb78f5066860eea2d4eaf7b"
+git-tree-sha1 = "efc140104e6d0ae3e7e30d56c98c4a927154d684"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.46"
+version = "0.7.48"
 
 [[deps.PolygonOps]]
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
@@ -1493,9 +1537,9 @@ version = "8.0.1000+0"
 
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "3c009334f45dfd546a16a57960a821a1a023d241"
+git-tree-sha1 = "97aa253e65b784fd13e83774cadc95b38011d734"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.5.0"
+version = "2.6.0"
 
 [[deps.RDKitMinimalLib]]
 deps = ["JSON", "RDKit_jll"]
@@ -1803,9 +1847,9 @@ version = "0.4.1"
 
 [[deps.UnicodePlots]]
 deps = ["ColorSchemes", "ColorTypes", "Contour", "Crayons", "Dates", "FileIO", "FreeType", "LinearAlgebra", "MarchingCubes", "NaNMath", "Printf", "Requires", "SnoopPrecompile", "SparseArrays", "StaticArrays", "StatsBase", "Unitful"]
-git-tree-sha1 = "8a6dcd44129de81cc760b9d8af6fba188d3a01a6"
+git-tree-sha1 = "390b2e8e5535f5beb50885d1a1059f460547d3a5"
 uuid = "b8865327-cd53-5732-bb35-84acbb429228"
-version = "3.1.3"
+version = "3.1.6"
 
 [[deps.Unitful]]
 deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
@@ -1898,9 +1942,9 @@ version = "1.4.0+3"
 
 [[deps.YAML]]
 deps = ["Base64", "Dates", "Printf", "StringEncodings"]
-git-tree-sha1 = "3c6e8b9f5cdaaa21340f841653942e1a6b6561e5"
+git-tree-sha1 = "dbc7f1c0012a69486af79c8bcdb31be820670ba2"
 uuid = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
-version = "0.4.7"
+version = "0.4.8"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
@@ -2019,46 +2063,49 @@ version = "3.5.0+0"
 # ╠═b3b795ff-7439-4b74-9d67-eef24c5b49a4
 # ╟─25200c84-03a2-4f71-b480-ec206976abbf
 # ╠═a1246cc6-da21-4576-859c-d88c87b45cc9
+# ╠═49ffc81a-f1c2-4b70-aa2d-ce67f4f62808
 # ╟─df61f5aa-ff37-46c5-8c0b-a5e4ddb9ae6c
 # ╠═518d2d5a-219a-4a66-b035-2fd6844cebd4
+# ╠═86a8a3f1-475a-479e-9d4a-a646605dcd93
 # ╟─1d261a3b-fb53-4432-a50a-8887f381c433
-# ╠═2ae186dd-2c0f-4e15-82a7-ea8d83d64639
+# ╠═cd0e15df-270f-4403-8944-3bf1ba514ca4
 # ╟─44c1b24d-72e9-43d0-99d7-0a50182d2d9e
 # ╠═c6f72c7f-f74c-4608-a716-a7e1e7e0ae5f
-# ╠═66ef5101-9a55-4bb3-9e4c-fae17e1dacfd
 # ╟─ea5c52d8-1e32-456c-a75e-a7a6e7987472
-# ╠═0407f561-e737-4477-a92b-7a650510cf5f
+# ╠═267cce68-79c1-4f70-baac-2ed7da51ef94
 # ╟─5450f7d6-f1fe-4659-90c5-af89a1a34adf
 # ╠═083af0db-b7c5-4a82-9f6a-4dcf4a43df33
-# ╠═d3bdc700-be19-4616-8e64-1eda2f42ddad
 # ╟─c855ccdf-215e-4537-84b1-34d5b203b1d5
 # ╠═01b581a3-174b-4f5f-aef1-42821fbc4718
 # ╠═432b0872-89e1-4565-90b8-9f7f5df40294
 # ╟─e6dac7df-a419-4ad6-8b15-eefc4299f284
+# ╠═1af62cbb-5583-4ef8-aae2-016df7683dd6
 # ╟─ddce9803-c97f-4cd1-99e8-07daabad7af7
 # ╠═a66e3a3e-e7ca-4564-aa8d-f757fa6f8f7c
 # ╟─f3793699-bfef-48b0-909a-98486a6be025
 # ╟─a543ec1f-ec35-4b00-8a52-a6cd16758f72
 # ╠═39bf16e9-40db-45b1-a95f-e1c5c6c81117
 # ╠═2c387392-f407-4ed9-bfe2-d526de84e4ea
+# ╟─f759d732-3034-49f1-ac2e-da3fede120a8
 # ╟─09aa5763-328b-45b9-b7d9-371b667a0f9c
-# ╠═a72a0c22-2a07-4357-ae04-3ae8718ce2e4
-# ╠═06ff735a-0e5a-4a2d-bad5-8831d7d62b79
+# ╠═d03b2044-531d-4f41-9825-25db521165ce
+# ╠═c75647c0-435b-4761-badf-01d5cc44765c
+# ╠═77b67d75-1679-4a12-a43d-34e783ae6ddf
 # ╟─669b8c61-fe8d-41a9-9136-e08c52387e30
 # ╠═e6ca846a-250e-4956-866b-2db6f88a3d46
+# ╠═386b034e-926d-4b53-884c-ac91bd50db7f
 # ╠═cc914a7f-22c6-40fa-a5eb-e42287f510bd
+# ╠═f0d34993-869e-47c9-84ae-703c8f90ec14
 # ╟─2babeadd-007c-4ccf-b28a-ac405f02a5bb
 # ╠═b98d884e-e73e-4609-b87b-1bffdf3e4ea3
+# ╠═6c478b5d-a6bd-4d17-991d-54ad0390def8
 # ╠═9dbdd088-1bc7-41cb-b26c-c57dd3f1b987
-# ╠═4d421837-8f95-4f81-9d3f-29a962dcbf30
 # ╟─549ccec9-2a45-4a61-bdeb-b92b619f2a53
 # ╠═88b38962-3a53-4519-a0df-91f6ef56ab69
 # ╠═38f88f6a-c751-4328-b4f0-f3104ba7fdd7
 # ╠═96da02dd-d37a-4c26-a10e-79434c9e3d3e
 # ╠═b4ace69a-1f3b-45e0-b730-ddc69838f7d2
 # ╟─784d1b91-aa24-4dd8-b654-230fc62c0ca6
-# ╠═d7f028b9-fc4d-4b7b-a1bb-83a722a28257
-# ╠═a5b571ba-aedf-4f2a-a3c5-d822bd6866c1
 # ╠═22c2e2a1-6d20-404e-9f57-eb9c9d6b9818
 # ╟─8e6b9f25-2720-4deb-83df-558475b4f680
 # ╠═883a4e5a-02a6-4e25-87f9-a30858811fcc
