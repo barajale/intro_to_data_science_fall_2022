@@ -6,12 +6,7 @@ using InteractiveUtils
 
 # ╔═╡ d566a523-323b-4001-871a-1956031fd289
 begin
-    import Pkg
-    # careful: this is _not_ a reproducible environment
-    # activate the global environment
-    Pkg.activate()
-
-    using PlutoUI, CSV, DataFrames, CairoMakie, ColorSchemes
+	using PlutoUI, CSV, DataFrames, CairoMakie
 	using AlgebraOfGraphics
 	import ScikitLearn
 end
@@ -51,16 +46,13 @@ header = ["class", "cap-shape", "cap-surface", "cap-color", "bruises?",
 		  "ring-type", "spore-print-color", "population", "habitat"] # you're welcome
 
 # ╔═╡ 9702bafd-6847-49bb-bba9-6524fafea360
-begin
-	download("https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data", "data.csv")
-	mush_data = CSV.read("data.csv", DataFrame, header=header)
-end
+
 
 # ╔═╡ ecf6d038-f102-4dfb-b75b-559977e19876
 md"🍄 how many features (attributes) of the mushrooms are recorded in the data set?"
 
 # ╔═╡ 253cb90c-702c-4fa4-84ed-4c390bfbcc3f
-println("Feature count: " * string(size(mush_data)[2]))
+
 
 # ╔═╡ 79b8b317-a83c-4bd2-bda9-8f591150a658
 
@@ -69,13 +61,13 @@ println("Feature count: " * string(size(mush_data)[2]))
 md"🍄 are there any missing values in the data? if so, drop the rows that contain `missing` entries."
 
 # ╔═╡ 8abf9193-f518-49df-8e0e-16f8e0b89d9a
-#missing(data)
+
 
 # ╔═╡ 48cb6573-d126-4571-8846-fc15f0ea801b
 md"🍄 use `combine` and `groupby` to determine how many of the mushrooms are edible vs. not."
 
-# ╔═╡ 8e887f73-eb02-4c3a-9b0c-1264a1be9440
-combine(groupby(mush_data, "class"), nrow => "count")
+# ╔═╡ 98a2d321-06f6-46b8-9f05-339eeaf00401
+
 
 # ╔═╡ d983df60-8957-4ba4-a981-e8797851da09
 md"🍄 the features are categorical. how many unique categories does each feature have?
@@ -85,12 +77,6 @@ md"🍄 the features are categorical. how many unique categories does each featu
 "
 
 # ╔═╡ fea46872-5758-4b65-8ab8-362c56cedcb1
-combine(mush_data, All() .=> col -> length(unique(col)))
-
-# ╔═╡ b640a2d6-b0f2-429d-ba36-467120b1fb2a
-combine(mush_data, All() .=> col -> length(unique(col)))
-
-# ╔═╡ c934bd07-a5f8-41d9-8a92-a2ae6459ae62
 
 
 # ╔═╡ fbd0b2ff-2ed4-40d6-ad7a-b89b43208056
@@ -109,15 +95,20 @@ md"## exploring the data
 
 "
 
-# ╔═╡ 8f79e473-9566-47af-9034-99085918f629
-mush_frequency = data(mush_data) * frequency() * mapping(:odor)
-
 # ╔═╡ 491a16bf-599a-4370-a2e1-17284ae96e8e
-begin
-	axis = (width = 500, height = 500)
-	plt = mush_frequency * mapping(color = :class, dodge = :class)
-	draw(plt; axis)
-end
+
+
+# ╔═╡ a6abd64b-b826-430f-ae90-58a51dfd4e5d
+
+
+# ╔═╡ 93f46b35-cff8-4d8f-9efb-12c9e049e587
+
+
+# ╔═╡ 1cd4dad5-cf10-40bb-99d7-be9e171f3141
+
+
+# ╔═╡ 161978e5-bc7f-47b3-91f9-debcef83dca6
+
 
 # ╔═╡ b273e7ee-625f-4da4-88bf-fa6e2cb3c912
 md"## preparing the features for machine learning
@@ -138,45 +129,30 @@ _new features encoding the same information_:
 	I used a double `for` loop and the `transform` function.
 "
 
-# ╔═╡ e0b93752-a20e-4cbf-b30a-b607db2dcfc6
-new_mush_data = copy(mush_data)
-
 # ╔═╡ 26c2aa55-217d-4fa4-9eaa-06b04119850a
-begin
-	for (i, col_name) in enumerate(names(mush_data))
-		unique_values = unique(mush_data[:,col_name])
-		for value in unique_values
-			name = col_name * "=" * string(value)
-			transform!(new_mush_data, col_name => (col-> (col .== value) ) => name)
-		end
-		select!(new_mush_data, Not(col_name))
-	end
-end
 
-# ╔═╡ 43c76179-fb78-419c-a7c4-fbcef302b648
-size(new_mush_data)
 
-# ╔═╡ 0356bfb1-0dad-4944-9fdd-1ec8512f1bf8
+# ╔═╡ fce3bbec-6082-44c2-9904-fdbb9cc9c22a
+
+
+# ╔═╡ 12fb4111-fcd1-4f18-ba02-b95a5cc6233e
+
+
+# ╔═╡ 18467ce4-244c-4290-9d71-3172e30aef4c
 
 
 # ╔═╡ 8fc789e8-3f31-46f7-932d-ae3489c8132a
 md"🍄 create the (# mushrooms × # binary features) feature matrix `X` with the binarized feature vector of each mushroom in the rows.
 "
 
-# ╔═╡ f9b8c4b8-fda8-4274-b977-2231a1e6c90a
-begin
-	x = convert.(Float64, select(new_mush_data, Not(["class=e", "class=p"])))
-	x = Matrix(x) 
-end
+# ╔═╡ 8c314af0-7bff-4480-824b-4313a44e57ce
+
 
 # ╔═╡ ae66dc33-9e0b-4b3a-a3ba-65d338e7add3
 md"🍄 create a # mushrooms-length target vector `y` listing the labels of the mushrooms. of course, the rows of `y` and rows of `X` must refer to the same mushroom..."
 
-# ╔═╡ 99798d86-2309-4b31-ac8c-819a60601d3f
-begin
-	y = convert.(Float64, select(new_mush_data, "class=p"))
-	y = Matrix(y) 
-end
+# ╔═╡ ab240d67-058a-4517-9c32-0b285231b714
+
 
 # ╔═╡ 54b4c02f-3c61-44f4-97d3-3e4dd6b2aea5
 md"## train and evaluate the random forest classifier
@@ -193,16 +169,16 @@ ensure the random forest is set up to evaluate the predictions on the out-of-bag
 "
 
 # ╔═╡ eca30527-400d-4a70-a66a-84599b174130
-begin
-	clf = RandomForestClassifier(oob_score=true)
-	clf.fit(x, vec(y)) 
-end
+
+
+# ╔═╡ be517817-fa78-47f1-a8b6-e7bcf13edb37
+
 
 # ╔═╡ 0c51f438-0bd4-4aef-aec8-b3a5ec437f41
 md"🍄 how many decision trees comprise your random forest?"
 
-# ╔═╡ 46eb3255-bb27-49ce-b478-08d3948aa1a6
-clf.get_params()["n_estimators"]
+# ╔═╡ 3417f6dd-4818-4934-9a0a-b43d5d986c8a
+
 
 # ╔═╡ c4e01a74-d669-40e2-9510-0435b53fff60
 md"🍄 draw a histogram of the depths of the trees in the forest. you should see a diversity of depths, owing to the randomness of the trees.
@@ -212,21 +188,10 @@ md"🍄 draw a histogram of the depths of the trees in the forest. you should se
 "
 
 
-# ╔═╡ e6da1914-94d3-40ac-9278-220cad1f3f2a
-begin
-	trees = clf.estimators_
-	all_depths = zeros(length(trees))
-	for (i, tree) in enumerate(trees)
-		all_depths[i] = tree.get_depth()
-	end
-	local fig = Figure()
-	local ax = Axis(fig[1, 1])
-	hist!(all_depths, color="limegreen", strokecolor=:black, strokewidth=1)
-	ylims!(0, nothing)
-	fig
-end
+# ╔═╡ 4cdd257a-68d4-4a44-aabe-258cccb202a1
 
-# ╔═╡ 905067b8-b563-4935-b551-011e6c69639e
+
+# ╔═╡ 8e3f2699-0e0b-41b5-a429-12256e91ba24
 
 
 # ╔═╡ d66d25ca-07c4-490e-a2ae-64fb49ab634d
@@ -243,40 +208,20 @@ md"🍄 compute the confusion matrix using the out of bag predictions on the mus
 	see the `oob_decision_function_` attribute of the random forest classifier.
 "
 
-# ╔═╡ fdb01698-654f-4b57-9846-63b0c0a173cf
-function viz_confusion(cm::Matrix; metr)
-	cm_to_plot = reverse(cm, dims=1)
-
-	fig = Figure()
-	ax  = Axis(fig[1, 1], 
-		xlabel="prediction", ylabel="truth",
-		xticks=(1:2, ["not $metr", "$metr"]),
-		yticks=(1:2, reverse(["not $metr", "$metr"]))
-	)
-	hm = heatmap!(cm_to_plot, 
-		colormap=ColorSchemes.algae, 
-		colorrange=(0, maximum(cm))
-	)
-	for i = 1:2
-        for j = 1:2
-            text!("$(Int(cm_to_plot[i, j]))",
-                  position=(i, j), align=(:center, :center), color="white", 
-				  textsize=50
-			)
-        end
-    end
-    Colorbar(fig[1, 2], hm, label="# of mushrooms")
-	return fig
-end
-
-# ╔═╡ 9bb63252-e6f8-419b-a3b8-9c7dd04e4425
-viz_confusion(confusion_matrix(y, clf.predict(x)), metr="Edible")
-
-# ╔═╡ 3e73e288-9f28-46d1-a713-f8fce22c406c
-sum(clf.predict(x) .== y) / length(y)
-
 # ╔═╡ 3dabd5d6-ea1a-4936-a0aa-c1844912d6e5
-cm = clf.oob_decision_function_
+
+
+# ╔═╡ c36ce157-8ade-4aaf-a9e1-49efbdcdea88
+
+
+# ╔═╡ d7cbd4d9-5247-4255-9091-a4e6fb473737
+
+
+# ╔═╡ cc9de20a-56bb-4659-8039-1e39337322fb
+
+
+# ╔═╡ b4f3a0a2-1e49-4d76-a9b9-62bf6f5e4df5
+
 
 # ╔═╡ 9e5bca95-c027-447c-82f9-a21499df43d9
 md"🍄 precisely explain what the \"out of bag prediction\" for a given mushroom means.
@@ -298,39 +243,21 @@ random forests are almost always more accurate than an individual decision tree,
 	see the `feature_importances_` attribute of the random forest classifier.
 " 
 
-# ╔═╡ 5e08c243-dbd1-4e69-8996-c4eb1f129912
-names(new_mush_data)
-
 # ╔═╡ bd65f545-1a02-4113-bb5c-3a37832f031e
-begin
-	feature_weights = clf.feature_importances_
-	feature_names = names(new_mush_data)
-	sort_ids = sortperm(feature_weights, rev=true)
-	feature_weights = feature_weights[sort_ids][1:10]
-	feature_names = feature_names[sort_ids][1:10]
-end
+
 
 # ╔═╡ 490ce163-afe6-4ed1-8a4e-0ae6a6f86a15
-begin
-		local fig = Figure()
-		local ax = Axis(fig[1, 1],
-			title="10 max weight features", 
-			xlabel="features",
-		 	ylabel="Weights",
-			xticks=(1:length(feature_names), feature_names), 
-			xticklabelrotation=45.0
-		)
-		barplot!(1:length(feature_weights), feature_weights, color="blue",
-			strokecolor=:black, strokewidth=1,
-			bar_labels=:y
-		)
-		ylims!(0, 0.15)
-		xlims!(0, nothing)
-		fig
-end
+
+
+# ╔═╡ e562409b-38aa-4f92-993c-c3bdd7c05da6
+
+
+# ╔═╡ d1333978-7033-4624-9cf1-a5259c59ff85
+
 
 # ╔═╡ Cell order:
 # ╠═d566a523-323b-4001-871a-1956031fd289
+# ╠═b42d2dd8-0c59-44c5-9393-1e77b14cbfeb
 # ╠═26c3ac2a-e83c-445e-b841-258802724124
 # ╠═583b698d-79ab-410f-aaeb-a09c471c83dd
 # ╠═f9143065-f790-4b22-bd30-0ebf8b1b8a8f
@@ -343,38 +270,42 @@ end
 # ╟─1334afa0-692a-4818-9444-bce9971a5415
 # ╠═8abf9193-f518-49df-8e0e-16f8e0b89d9a
 # ╟─48cb6573-d126-4571-8846-fc15f0ea801b
-# ╠═8e887f73-eb02-4c3a-9b0c-1264a1be9440
+# ╠═98a2d321-06f6-46b8-9f05-339eeaf00401
 # ╟─d983df60-8957-4ba4-a981-e8797851da09
 # ╠═fea46872-5758-4b65-8ab8-362c56cedcb1
-# ╠═b640a2d6-b0f2-429d-ba36-467120b1fb2a
-# ╠═c934bd07-a5f8-41d9-8a92-a2ae6459ae62
 # ╟─fbd0b2ff-2ed4-40d6-ad7a-b89b43208056
-# ╠═8f79e473-9566-47af-9034-99085918f629
 # ╠═491a16bf-599a-4370-a2e1-17284ae96e8e
+# ╠═a6abd64b-b826-430f-ae90-58a51dfd4e5d
+# ╠═93f46b35-cff8-4d8f-9efb-12c9e049e587
+# ╠═1cd4dad5-cf10-40bb-99d7-be9e171f3141
+# ╠═161978e5-bc7f-47b3-91f9-debcef83dca6
 # ╟─b273e7ee-625f-4da4-88bf-fa6e2cb3c912
-# ╠═e0b93752-a20e-4cbf-b30a-b607db2dcfc6
 # ╠═26c2aa55-217d-4fa4-9eaa-06b04119850a
-# ╠═43c76179-fb78-419c-a7c4-fbcef302b648
-# ╠═0356bfb1-0dad-4944-9fdd-1ec8512f1bf8
+# ╠═fce3bbec-6082-44c2-9904-fdbb9cc9c22a
+# ╠═12fb4111-fcd1-4f18-ba02-b95a5cc6233e
+# ╠═18467ce4-244c-4290-9d71-3172e30aef4c
 # ╟─8fc789e8-3f31-46f7-932d-ae3489c8132a
-# ╠═f9b8c4b8-fda8-4274-b977-2231a1e6c90a
+# ╠═8c314af0-7bff-4480-824b-4313a44e57ce
 # ╟─ae66dc33-9e0b-4b3a-a3ba-65d338e7add3
-# ╠═99798d86-2309-4b31-ac8c-819a60601d3f
+# ╠═ab240d67-058a-4517-9c32-0b285231b714
 # ╟─54b4c02f-3c61-44f4-97d3-3e4dd6b2aea5
 # ╠═eca30527-400d-4a70-a66a-84599b174130
+# ╠═be517817-fa78-47f1-a8b6-e7bcf13edb37
 # ╟─0c51f438-0bd4-4aef-aec8-b3a5ec437f41
-# ╠═46eb3255-bb27-49ce-b478-08d3948aa1a6
+# ╠═3417f6dd-4818-4934-9a0a-b43d5d986c8a
 # ╟─c4e01a74-d669-40e2-9510-0435b53fff60
-# ╠═e6da1914-94d3-40ac-9278-220cad1f3f2a
-# ╠═905067b8-b563-4935-b551-011e6c69639e
+# ╠═4cdd257a-68d4-4a44-aabe-258cccb202a1
+# ╠═8e3f2699-0e0b-41b5-a429-12256e91ba24
 # ╟─d66d25ca-07c4-490e-a2ae-64fb49ab634d
 # ╟─dc2ac948-c629-4223-8005-7793ad8ad30d
-# ╠═9bb63252-e6f8-419b-a3b8-9c7dd04e4425
-# ╠═fdb01698-654f-4b57-9846-63b0c0a173cf
-# ╠═3e73e288-9f28-46d1-a713-f8fce22c406c
 # ╠═3dabd5d6-ea1a-4936-a0aa-c1844912d6e5
+# ╠═c36ce157-8ade-4aaf-a9e1-49efbdcdea88
+# ╠═d7cbd4d9-5247-4255-9091-a4e6fb473737
+# ╠═cc9de20a-56bb-4659-8039-1e39337322fb
+# ╠═b4f3a0a2-1e49-4d76-a9b9-62bf6f5e4df5
 # ╟─9e5bca95-c027-447c-82f9-a21499df43d9
 # ╟─36ab9afe-611d-464d-87f8-ba91b791fc1b
-# ╠═5e08c243-dbd1-4e69-8996-c4eb1f129912
 # ╠═bd65f545-1a02-4113-bb5c-3a37832f031e
 # ╠═490ce163-afe6-4ed1-8a4e-0ae6a6f86a15
+# ╠═e562409b-38aa-4f92-993c-c3bdd7c05da6
+# ╠═d1333978-7033-4624-9cf1-a5259c59ff85

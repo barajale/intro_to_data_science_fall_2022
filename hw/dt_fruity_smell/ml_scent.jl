@@ -7,6 +7,9 @@ using InteractiveUtils
 # ╔═╡ c4c85f7a-4c12-11ed-266d-a71f1fde33f8
 using CSV, DataFrames, ScikitLearn, MolecularGraphKernels, CairoMakie, ColorSchemes, GraphViz, RDKitMinimalLib, PlutoUI, FileIO, Random
 
+# ╔═╡ 3b6d11a6-4bb2-492a-8bd4-24e9c7bf719b
+md"Alexander Barajas-Ritchie"
+
 # ╔═╡ 51633144-4549-438b-9173-29918bcda346
 md"# classifying a molecule as smelling fruity or not via a decision tree
 
@@ -192,9 +195,9 @@ md"🥝 create new arrays `X_train`, `y_train`, `X_test`, and `y_test` that slic
 # ╔═╡ 267cce68-79c1-4f70-baac-2ed7da51ef94
 begin
 	X_test = X[ids_test, :]
-	X_train = X[ids_train, :]
-	
 	y_test = y[ids_test,:]
+	
+	X_train = X[ids_train, :]
 	y_train = y[ids_train,:]
 end
 
@@ -268,16 +271,6 @@ begin
 	println(sum(y_test_predict .== y_test) / length(y_test))
 end
 
-# ╔═╡ 77b67d75-1679-4a12-a43d-34e783ae6ddf
-# begin
-# 	count = 0
-# 	for (i, row) in enumerate( eachrow( y_train ) )
-# 		if y_pred[i,:] == row
-# 			count += 1
-# 		end
-# 	end
-# end
-
 # ╔═╡ 669b8c61-fe8d-41a9-9136-e08c52387e30
 md"🥝 thinking of \"smells fruity\" as a \"positive\", also compute the [precision and recall](https://en.wikipedia.org/wiki/Precision_and_recall) on the test set."
 
@@ -295,6 +288,9 @@ print("fruity == fruity?: ",sum(y_test .& y_test_predict) / sum(y_test))
 
 # ╔═╡ 2babeadd-007c-4ccf-b28a-ac405f02a5bb
 md"🥝 compute and visualize the _confusion matrix_ on the _test_ data using the [`confusion_matrix` function](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html). I provide a function below to visualize the confusion matrix. make sure you understand what the confusion matrix is conveying."
+
+# ╔═╡ 2f7c5225-e15a-4674-8f71-33f224343947
+confusion_matrix(y_train, y_train_predict)
 
 # ╔═╡ 9dbdd088-1bc7-41cb-b26c-c57dd3f1b987
 function viz_confusion(cm::Matrix; odor="fruity")
@@ -352,10 +348,8 @@ we now treat the `max_depth` parameter of the decision tree classifier as a tuna
 🥝 prepare for $K=5$-fold cross validation to optimize the `max_depth` parameter. use `StratifiedCV` and `train_test_pairs` (see [here](https://docs.juliahub.com/MLJBase/jaWQl/0.18.21/resampling/#MLJBase.StratifiedCV)) to create an iterator over `(id_kf_train, id_kf_test)` tuples that give the indices of the training data that are further split into 5 rounds of train/test splits---in a way that the label distribution is preserved in the splits (hence, _stratified_).
 "
 
-# ╔═╡ 22c2e2a1-6d20-404e-9f57-eb9c9d6b9818
-(id_kf_train, id_kf_test) = train_test_pairs(
-		StratifiedCV(; nfolds=5, shuffle=true,rng=Random.GLOBAL_RNG),
-		1:length(y_train), y_train)	
+# ╔═╡ fc448d06-85de-4cd6-a584-7fb70cb465d2
+
 
 # ╔═╡ 8e6b9f25-2720-4deb-83df-558475b4f680
 md"🥝 through $K=5$ folds cross-validation, let's determine the optimal `max_depth` parameter of the decision tree among $\{1, 2, ..., 20\}$. loop over each `max_depth` parameter. nested within that loop, loop over the $K=5$ folds, unpack the train/test indices (referring to the rows of `X_train` and `y_train`), train a decision tree with that `max_depth` and that chunk of training data, and compute the accuracy on that test chunk of data. ultimately, we need a length-20 array `kf_accuracy` containing the mean accuracy over the K=5 folds of test data for each `max_depth`.
@@ -366,26 +360,55 @@ md"🥝 through $K=5$ folds cross-validation, let's determine the optimal `max_d
 
 # ╔═╡ 883a4e5a-02a6-4e25-87f9-a30858811fcc
 begin
-	best_max_depth = 0
+	itr = train_test_pairs(StratifiedCV(; nfolds=5, shuffle=true,rng=Random.GLOBAL_RNG),
+		1:length(y_train), y_train)	
+	
+	kf_accuracy = zeros(20)
 	for i in 1:20
-		
+		kf_model = DecisionTreeClassifier(max_depth=i)
+		temp_kf_accuracy = 0.0
+		for (f, pair) in enumerate(itr)
+			kf_X_train = X[pair[1], :]
+			kf_y_train = y[pair[1],:]
+			kf_X_test = X[pair[2], :]
+			kf_y_test = y[pair[2],:]
+			fit!(kf_model, kf_X_train, kf_y_train)
+			temp_kf_accuracy += kf_model.score(kf_X_test, kf_y_test)
+		end
+		kf_accuracy[i] = (temp_kf_accuracy / 5)
 	end
 end
 
 # ╔═╡ 0be4ead7-36c2-45a3-a8d5-4e07379096a4
-
+kf_accuracy
 
 # ╔═╡ ad7d348e-7169-4ae4-82f8-6e39c09ab25c
-
+begin
+	local fig = Figure()
+	local ax = Axis(fig[1, 1], 
+		title="Average scores for k-fold testing", 
+		xlabel="Max depth parameter", 
+		ylabel="Accuracy")
+	lines!(1:length(kf_accuracy), kf_accuracy, 
+		   label="trend line", 
+		   color=ColorSchemes.okabe_ito[1])
+	scatter!(1:length(kf_accuracy), kf_accuracy, 
+		     color=ColorSchemes.okabe_ito[2], markersize=12, 
+		     label="data", marker=:rect, strokewidth=1)
+	axislegend(position=:rb)
+	fig
+end
 
 # ╔═╡ 9d2b2e4b-9d15-408d-b687-58f759aa8245
 md"🥝 finally, train a decision tree _with the optimal max depth_, using _all_ of the training data. re-plot the confusion matrix on the _test_ data. did the performance on the test data improve?"
 
-# ╔═╡ 7daad1fc-fe82-4de7-8066-a196ea3c096e
-
-
 # ╔═╡ 1943a4aa-df4a-45bd-9804-1901fa361295
-
+begin
+	depth = argmax(kf_accuracy)
+	final_model = DecisionTreeClassifier(max_depth=depth)
+	fit!(final_model, X_train, y_train)
+	println(final_model.score(X_test, y_test))
+end
 
 # ╔═╡ 7cbef9fb-6a76-47d7-8aa3-2e5819223f74
 
@@ -394,7 +417,7 @@ md"🥝 finally, train a decision tree _with the optimal max depth_, using _all_
 
 
 # ╔═╡ a4f2081e-342c-4884-9bf8-2f26e132223e
-
+my_tree = final_model
 
 # ╔═╡ ce971ec4-efdb-4c8b-a631-a2f418396562
 md"🥝 one advantage of a decision tree is interpretability. you can look at each decision as a data point percolates down the tree. use `plot_tree` to visualize the decision tree. this requires matplotlib. the code below worked for me. what is the first decision in the tree? what chemistry is this split looking at (keep in mind, Python is indexed at 0)? see [here](https://github.com/rdkit/rdkit/blob/master/rdkit/Chem/MACCSkeys.py) for a list of the SMARTS patterns involved in MAACS fingerprints. [this website](https://smarts.plus/) may be helpful to understand the pattern the SMARTS string is looking for.
@@ -408,7 +431,12 @@ f.savefig(\"decistion_tree.pdf\", format=\"pdf\")
 "
 
 # ╔═╡ 93d6bae8-742c-4252-99ec-429697a19e9c
-
+begin
+	import PyPlot
+	f = PyPlot.figure()
+	plot_tree(my_tree, class_names=["not fruity", "fruity"], filled=true)
+	f.savefig("/Users/tank/Documents/Documents/PhD/PhD_Year_2/CHE_599/decistion_tree.pdf", format="pdf")
+end
 
 # ╔═╡ 0c86eb99-984b-46bc-bf18-45eeef91d9bd
 
@@ -432,6 +460,7 @@ GraphViz = "f526b714-d49f-11e8-06ff-31ed36ee7ee0"
 MLJBase = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 RDKitMinimalLib = "44044271-7623-48dc-8250-42433c44e4b7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
@@ -446,6 +475,7 @@ GraphViz = "~0.2.0"
 MLJBase = "~0.20.20"
 MolecularGraphKernels = "~0.5.3"
 PlutoUI = "~0.7.48"
+PyPlot = "~2.11.0"
 RDKitMinimalLib = "~1.1.2"
 ScikitLearn = "~0.6.4"
 """
@@ -456,7 +486,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "42450b26ad9ad7ef9cee35cb63ae50bb2f507718"
+project_hash = "4bd22e13f6c4e03f2aad792c52556f59318983f9"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -1517,6 +1547,12 @@ git-tree-sha1 = "53b8b07b721b77144a0fbbbc2675222ebf40a02d"
 uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 version = "1.94.1"
 
+[[deps.PyPlot]]
+deps = ["Colors", "LaTeXStrings", "PyCall", "Sockets", "Test", "VersionParsing"]
+git-tree-sha1 = "f9d953684d4d21e947cb6d642db18853d43cb027"
+uuid = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+version = "2.11.0"
+
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
 git-tree-sha1 = "18e8f4d1426e965c7b532ddd260599e1510d26ce"
@@ -2040,6 +2076,7 @@ version = "3.5.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─3b6d11a6-4bb2-492a-8bd4-24e9c7bf719b
 # ╟─51633144-4549-438b-9173-29918bcda346
 # ╠═c4c85f7a-4c12-11ed-266d-a71f1fde33f8
 # ╠═04286557-a3e4-4858-bbc4-c99b1e88821a
@@ -2090,7 +2127,6 @@ version = "3.5.0+0"
 # ╟─09aa5763-328b-45b9-b7d9-371b667a0f9c
 # ╠═d03b2044-531d-4f41-9825-25db521165ce
 # ╠═c75647c0-435b-4761-badf-01d5cc44765c
-# ╠═77b67d75-1679-4a12-a43d-34e783ae6ddf
 # ╟─669b8c61-fe8d-41a9-9136-e08c52387e30
 # ╠═e6ca846a-250e-4956-866b-2db6f88a3d46
 # ╠═386b034e-926d-4b53-884c-ac91bd50db7f
@@ -2099,6 +2135,7 @@ version = "3.5.0+0"
 # ╟─2babeadd-007c-4ccf-b28a-ac405f02a5bb
 # ╠═b98d884e-e73e-4609-b87b-1bffdf3e4ea3
 # ╠═6c478b5d-a6bd-4d17-991d-54ad0390def8
+# ╠═2f7c5225-e15a-4674-8f71-33f224343947
 # ╠═9dbdd088-1bc7-41cb-b26c-c57dd3f1b987
 # ╟─549ccec9-2a45-4a61-bdeb-b92b619f2a53
 # ╠═88b38962-3a53-4519-a0df-91f6ef56ab69
@@ -2106,13 +2143,12 @@ version = "3.5.0+0"
 # ╠═96da02dd-d37a-4c26-a10e-79434c9e3d3e
 # ╠═b4ace69a-1f3b-45e0-b730-ddc69838f7d2
 # ╟─784d1b91-aa24-4dd8-b654-230fc62c0ca6
-# ╠═22c2e2a1-6d20-404e-9f57-eb9c9d6b9818
+# ╠═fc448d06-85de-4cd6-a584-7fb70cb465d2
 # ╟─8e6b9f25-2720-4deb-83df-558475b4f680
 # ╠═883a4e5a-02a6-4e25-87f9-a30858811fcc
 # ╠═0be4ead7-36c2-45a3-a8d5-4e07379096a4
 # ╠═ad7d348e-7169-4ae4-82f8-6e39c09ab25c
 # ╟─9d2b2e4b-9d15-408d-b687-58f759aa8245
-# ╠═7daad1fc-fe82-4de7-8066-a196ea3c096e
 # ╠═1943a4aa-df4a-45bd-9804-1901fa361295
 # ╠═7cbef9fb-6a76-47d7-8aa3-2e5819223f74
 # ╠═674c78b8-8d17-438f-afd8-ee6f438d4c87
