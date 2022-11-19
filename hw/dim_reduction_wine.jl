@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ e35f94a9-fd14-4617-ae89-6033d821a9c0
-using CSV, DataFrames, ScikitLearn, Statistics, CairoMakie
+using CSV, DataFrames, ScikitLearn, Statistics, CairoMakie, ColorSchemes
 
 # ╔═╡ 47af455a-38ea-45ed-a9b6-84278cc5a6c3
 import AlgebraOfGraphics as aog
@@ -35,8 +35,10 @@ _source_: UCI Machine Learning repository [here](https://archive.ics.uci.edu/ml/
 header = ["Variety", "Alcohol", "Malic acid", "Ash", "Alcalinity of ash", "Magnesium", "Total phenols", "Flavanoids", "Nonflavanoid phenols", "Proanthocyanins", "Color intensity", "Hue", "OD280/OD315 of diluted wines", "Proline"]
 
 # ╔═╡ a94e462b-96d3-4b7f-b5e8-1e84eca5b7a5
-
-# ╔═╡ 2e56c0eb-159f-4662-bac1-f8fe854af1cb
+begin
+	download("https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data", "data.csv")
+	wine_data = CSV.read("data.csv", DataFrame, header=header)
+end
 
 # ╔═╡ dd39776a-b853-4617-ada9-16a50ff2044a
 md"🍷 construct the (# wines) × (# attributes) feature matrix `X` that lists the attributes of the wines in the rows. so each row represents a wine, and each column represents an attribute of the wines. be sure not to include the `\"Variety\"`, as this is a label.
@@ -46,35 +48,67 @@ md"🍷 construct the (# wines) × (# attributes) feature matrix `X` that lists 
 "
 
 # ╔═╡ 154586dd-ae21-4c1a-80a9-7a045557a15f
-
-# ╔═╡ e9cc8594-f49b-493a-a817-0886c3417269
+begin
+	y = Matrix(select(wine_data, ("Variety")))
+	matrix = Matrix(select(wine_data, Not("Variety")))
+end
 
 # ╔═╡ f87ffcb2-c68a-4efa-8bc4-881e8a53aab4
 md"🍷 PCA is most effective when the values of the features are standardized. loop through each column of the feature matrix `X` and standardize each feature by (i) subtracting the mean value of that feature among the instances and (ii) dividing by the standard deviation of the values of the feature among the instances. you should notice that each value of the feature tends to lie in $[-2, 2]$, but outliers can lie outside of the interval.
 "
 
 # ╔═╡ d1831d6d-93bb-4e8a-a731-8ad3650336d3
+begin
+	new_matrix = copy(matrix)
+	for (i, col) in enumerate(eachcol(new_matrix))
+		new_matrix[:,i] = (col .- mean(col)) / (std(col))
+	end
+end
 
 # ╔═╡ e93311b1-6812-4111-a14a-a2c30fefa91e
+new_matrix
 
 # ╔═╡ 24b78de1-d624-4e02-97c3-b4fb55234e46
 md"🍷 use `PCA` from `scikit-learn` and its `fit_transform` method to conduct PCA on the wine data. particularly, embed each wine, originally represented as a 13-dimensional (the # of attributes) feature vector, into a 2D space conducive for visualization. i.e. retain only the first two principal components."
 
 # ╔═╡ c56868a3-a4e1-4e03-aba7-538f4b725b02
+pca = PCA(n_components=13)
+
+# ╔═╡ 4a08a731-b131-48ef-8f37-c71ddc927322
+pca_matrix = pca.fit_transform(new_matrix)
 
 # ╔═╡ 4727f313-b81a-4939-bb8d-5ffa2d9100c4
 md"🍷 visualize the first two principal components of each wine. i.e. plot the 2D embeddings of the wines. color each point (representing a wine) by the variety of wine it belongs to, the labels in the first column of the wine data that we held-out from the unsupervised PCA. include a legend to indicate which color corresponds to which wine variety (1, 2, 3).
 "
 
-# ╔═╡ 1b4a9e8f-ea94-45d9-8559-65084c688f14
+# ╔═╡ d2d67a4d-324a-4320-b36a-4f1d7e8f6870
+begin 
+	local fig = Figure()
+	local ax = Axis(fig[1,1])
+	for (i, y_hat) in enumerate(eachrow(y))
+		scatter!(pca_matrix[i,1], pca_matrix[i, 2],
+			color=ColorSchemes.okabe_ito[y[i]])
+	end
+	fig
+end
 
 # ╔═╡ a12141d9-087d-4306-a822-dd96ed83d416
 md"🍷 judging from your plot, was PCA able to find meaningful pattterns/structure in the 13-dimensional wine feature vectors, even though we retained only two dimensions?"
+
+# ╔═╡ c63d1a34-7e3e-4939-ac0d-5b7ae4fb8266
+md"For sure! We got good seperation with three groups"
 
 # ╔═╡ 043c47e5-1d82-4d4b-8740-85cffe445cad
 md"🍷 what percentage of the variance among the 13-dimenionsal feature vectors were the first two principal components able to, together, capture? see the `explained_variance_ratio_` attribute of your fitted PCA model."
 
 # ╔═╡ cd82e4e4-f38a-4718-9ad3-1a3a6d5c7212
+begin
+	pca_variance_ratio = pca.explained_variance_ratio_
+	sum(pca_variance_ratio[1:3])
+end
+
+# ╔═╡ 11bb2186-08f2-4ef0-afe5-98ec3415b1db
+md"approx 60%"
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -82,6 +116,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -90,6 +125,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 AlgebraOfGraphics = "~0.6.12"
 CSV = "~0.10.7"
 CairoMakie = "~0.9.2"
+ColorSchemes = "~3.19.0"
 DataFrames = "~1.4.2"
 ScikitLearn = "~0.6.5"
 """
@@ -98,9 +134,9 @@ ScikitLearn = "~0.6.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.2"
+julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "d073661d87e0defada49248f6bc2ac1b98a2fd70"
+project_hash = "a133fbea2a5af0e06e77fab6270355e93805050a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -276,9 +312,9 @@ version = "1.13.0"
 
 [[deps.DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SnoopPrecompile", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "5b93f1b47eec9b7194814e40542752418546679f"
+git-tree-sha1 = "0f44494fe4271cc966ac4fea524111bef63ba86c"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.4.2"
+version = "1.4.3"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -980,9 +1016,9 @@ version = "1.3.0"
 
 [[deps.PrettyTables]]
 deps = ["Crayons", "Formatting", "LaTeXStrings", "Markdown", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "98ac42c9127667c2731072464fcfef9b819ce2fa"
+git-tree-sha1 = "d8ed354439950b34ab04ff8f3dfd49e11bc6c94b"
 uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "2.2.0"
+version = "2.2.1"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -1146,9 +1182,9 @@ uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
-git-tree-sha1 = "b3363d7460f7d098ca0912c69b082f75625d7508"
+git-tree-sha1 = "a4ada03f999bd01b3a25dcaa30b2d929fe537e00"
 uuid = "a2af1166-a08f-5f64-846c-94a0d3cef48c"
-version = "1.0.1"
+version = "1.1.0"
 
 [[deps.SparseArrays]]
 deps = ["LinearAlgebra", "Random"]
@@ -1240,7 +1276,7 @@ version = "1.10.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
-version = "1.10.1"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1447,19 +1483,20 @@ version = "3.5.0+0"
 # ╟─e7701be9-a8eb-4b44-9875-9e61d35a154d
 # ╠═03981f54-8d9b-4246-99e9-9f33c818266c
 # ╠═a94e462b-96d3-4b7f-b5e8-1e84eca5b7a5
-# ╠═2e56c0eb-159f-4662-bac1-f8fe854af1cb
 # ╟─dd39776a-b853-4617-ada9-16a50ff2044a
 # ╠═154586dd-ae21-4c1a-80a9-7a045557a15f
-# ╠═e9cc8594-f49b-493a-a817-0886c3417269
 # ╟─f87ffcb2-c68a-4efa-8bc4-881e8a53aab4
 # ╠═d1831d6d-93bb-4e8a-a731-8ad3650336d3
 # ╠═e93311b1-6812-4111-a14a-a2c30fefa91e
 # ╟─24b78de1-d624-4e02-97c3-b4fb55234e46
 # ╠═c56868a3-a4e1-4e03-aba7-538f4b725b02
+# ╠═4a08a731-b131-48ef-8f37-c71ddc927322
 # ╟─4727f313-b81a-4939-bb8d-5ffa2d9100c4
-# ╠═1b4a9e8f-ea94-45d9-8559-65084c688f14
+# ╠═d2d67a4d-324a-4320-b36a-4f1d7e8f6870
 # ╟─a12141d9-087d-4306-a822-dd96ed83d416
+# ╟─c63d1a34-7e3e-4939-ac0d-5b7ae4fb8266
 # ╟─043c47e5-1d82-4d4b-8740-85cffe445cad
-# ╠═cd82e4e4-f38a-4718-9ad3-1a3a6d5c7212
+# ╟─cd82e4e4-f38a-4718-9ad3-1a3a6d5c7212
+# ╟─11bb2186-08f2-4ef0-afe5-98ec3415b1db
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
